@@ -99,6 +99,10 @@ function createMainWindow(): void {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
 
+  mainWindow.webContents.on("console-message", (_event, level, message, line, sourceId) => {
+    console.log(`[Renderer] ${message} (${sourceId}:${line})`);
+  });
+
   mainWindow.show();
 
   trayManager = new TrayManager(mainWindow);
