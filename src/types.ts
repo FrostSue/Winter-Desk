@@ -23,7 +23,7 @@ export interface SnowmanConfig {
   accessory: string;
 }
 
-export type ScreenEvent = "snowplough" | "snowball-fight" | "santa" | "train";
+export type ScreenEvent = "snowplough" | "snowball-fight" | "stop-snowball-fight" | "santa" | "train";
 
 export interface WinterDeskAPI {
   getTaskbarBounds: () => Promise<TaskbarBounds>;
