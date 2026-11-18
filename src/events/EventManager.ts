@@ -54,6 +54,8 @@ export class EventManager {
   private activeTrain: GiftTrainVehicle | null = null;
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds;
+  private battleRounds = 0;
+  private battleEndingTimer = 0;
 
   constructor(accumulator: SnowAccumulator, taskbar: TaskbarBounds) {
     this.accumulator = accumulator;
@@ -85,6 +87,25 @@ export class EventManager {
   public stopSnowballFight(): void {
     this.fighters = [];
     this.snowballs = [];
+    this.battleRounds = 0;
+    this.battleEndingTimer = 0;
+  }
+
+  public containsFighter(px: number, py: number): boolean {
+    for (const fighter of this.fighters) {
+      const left = fighter.x - 30;
+      const right = fighter.x + 30;
+      const top = fighter.y - 70;
+      const bottom = fighter.y + 10;
+      if (px >= left && px <= right && py >= top && py <= bottom) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public isSnowballFightActive(): boolean {
+    return this.fighters.length > 0;
   }
 
   private spawnSnowplough(): void {
@@ -99,6 +120,8 @@ export class EventManager {
   }
 
   private spawnSnowballFight(): void {
+    this.battleRounds = 0;
+    this.battleEndingTimer = 0;
     const leftX = Math.max(120, window.innerWidth * 0.2);
     const rightX = Math.min(window.innerWidth - 120, window.innerWidth * 0.8);
 
@@ -211,18 +234,25 @@ export class EventManager {
     }
 
     if (this.fighters.length === 2) {
-      for (const fighter of this.fighters) {
-        if (fighter.speechTimer > 0) {
-          fighter.speechTimer--;
-          if (fighter.speechTimer === 0) {
-            fighter.speechText = null;
-          }
+      if (this.battleEndingTimer > 0) {
+        this.battleEndingTimer--;
+        if (this.battleEndingTimer === 0) {
+          this.stopSnowballFight();
         }
+      } else {
+        for (const fighter of this.fighters) {
+          if (fighter.speechTimer > 0) {
+            fighter.speechTimer--;
+            if (fighter.speechTimer === 0) {
+              fighter.speechText = null;
+            }
+          }
 
-        fighter.throwCooldown--;
-        if (fighter.throwCooldown <= 0) {
-          fighter.throwCooldown = 90 + Math.floor(Math.random() * 40);
-          this.throwSnowball(fighter);
+          fighter.throwCooldown--;
+          if (fighter.throwCooldown <= 0) {
+            fighter.throwCooldown = 90 + Math.floor(Math.random() * 40);
+            this.throwSnowball(fighter);
+          }
         }
       }
     }
@@ -259,8 +289,17 @@ export class EventManager {
       radius: 5
     });
 
-    fighter.speechText = Math.random() > 0.5 ? "CATCH!" : "TAKE THAT!";
-    fighter.speechTimer = 60;
+    this.battleRounds++;
+    if (this.battleRounds >= 12) {
+      for (const f of this.fighters) {
+        f.speechText = "GOOD GAME!";
+        f.speechTimer = 180;
+      }
+      this.battleEndingTimer = 180;
+    } else {
+      fighter.speechText = Math.random() > 0.5 ? "CATCH!" : "TAKE THAT!";
+      fighter.speechTimer = 60;
+    }
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
