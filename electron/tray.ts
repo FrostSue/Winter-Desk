@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, nativeImage, Tray } from "electron";
+import { app, BrowserWindow, Menu, nativeImage, type NativeImage, Tray } from "electron";
 import type { ScreenEvent, SnowConfig } from "../src/types";
 
 export class TrayManager {
@@ -22,7 +22,7 @@ export class TrayManager {
     this.updateContextMenu();
   }
 
-  private createDefaultTrayIcon(): nativeImage {
+  private createDefaultTrayIcon(): NativeImage {
     const size = 16;
     const canvas = Buffer.alloc(size * size * 4);
     for (let y = 0; y < size; y++) {
