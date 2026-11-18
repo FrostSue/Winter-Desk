@@ -5,6 +5,8 @@ export class Snowman {
   public y: number;
   public scale: number;
   public isSpawned = false;
+  public isDragging = false;
+  public hasCustomPosition = false;
   public spawnProgress = 0;
   public isWaving = false;
   public waveAngle = 0;
@@ -28,7 +30,9 @@ export class Snowman {
   }
 
   public update(taskbar: TaskbarBounds): void {
-    this.y = taskbar.y;
+    if (!this.hasCustomPosition && !this.isDragging) {
+      this.y = taskbar.y;
+    }
     this.idleTimer += 0.05;
 
     if (!this.isSpawned) {
@@ -48,6 +52,12 @@ export class Snowman {
     } else {
       this.waveAngle = 0;
     }
+  }
+
+  public setPosition(newX: number, newY: number): void {
+    this.x = newX;
+    this.y = newY;
+    this.hasCustomPosition = true;
   }
 
   public setWaving(waving: boolean): void {
