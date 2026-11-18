@@ -5,15 +5,15 @@ export class DecorationManager {
   private lights: FairyLights[] = [];
   private ornaments: Ornament[] = [];
   private draggedLight: { light: FairyLights; handle: "p1" | "p2" } | null = null;
-  private draggedOrnament: Ornament | null = null;
+  private draggedOrnament: { ornament: Ornament; offsetX: number; offsetY: number } | null = null;
   private isHovering = false;
 
   constructor() {
     const screenW = window.innerWidth;
-    this.lights.push(new FairyLights(0, 6, screenW, 6));
-    this.ornaments.push(new Ornament(screenW * 0.2, 35, "red-bauble"));
-    this.ornaments.push(new Ornament(screenW * 0.5, 38, "wreath"));
-    this.ornaments.push(new Ornament(screenW * 0.8, 35, "gold-bauble"));
+    this.lights.push(new FairyLights(0, 2, screenW, 2));
+    this.ornaments.push(new Ornament(screenW * 0.22, 28, "red-bauble"));
+    this.ornaments.push(new Ornament(screenW * 0.48, 28, "wreath"));
+    this.ornaments.push(new Ornament(screenW * 0.78, 28, "gold-bauble"));
   }
 
   public resize(newWidth: number): void {
@@ -22,8 +22,16 @@ export class DecorationManager {
     }
   }
 
+  public addLights(x1: number, y1: number, x2: number, y2: number): void {
+    this.lights.push(new FairyLights(x1, y1, x2, y2));
+  }
+
   public addOrnament(x: number, y: number, type: OrnamentType): void {
     this.ornaments.push(new Ornament(x, y, type));
+  }
+
+  public clearOrnaments(): void {
+    this.ornaments = [];
   }
 
   public removeOrnamentAt(px: number, py: number): boolean {
@@ -71,7 +79,11 @@ export class DecorationManager {
 
     for (const ornament of this.ornaments) {
       if (ornament.containsPoint(px, py)) {
-        this.draggedOrnament = ornament;
+        this.draggedOrnament = {
+          ornament,
+          offsetX: px - ornament.x,
+          offsetY: py - ornament.y
+        };
         ornament.isDragging = true;
         return true;
       }
@@ -93,8 +105,8 @@ export class DecorationManager {
     }
 
     if (this.draggedOrnament) {
-      this.draggedOrnament.x = px;
-      this.draggedOrnament.y = py;
+      this.draggedOrnament.ornament.x = px - this.draggedOrnament.offsetX;
+      this.draggedOrnament.ornament.y = py - this.draggedOrnament.offsetY;
       return true;
     }
 
@@ -131,7 +143,7 @@ export class DecorationManager {
     }
 
     if (this.draggedOrnament) {
-      this.draggedOrnament.isDragging = false;
+      this.draggedOrnament.ornament.isDragging = false;
       this.draggedOrnament = null;
     }
   }
