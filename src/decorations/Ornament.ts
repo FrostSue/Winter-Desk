@@ -1,4 +1,12 @@
-export type OrnamentType = "red-bauble" | "gold-bauble" | "wreath" | "stocking" | "tree";
+export type OrnamentType =
+  | "red-bauble"
+  | "gold-bauble"
+  | "blue-bauble"
+  | "wreath"
+  | "stocking"
+  | "tree"
+  | "candy-cane"
+  | "gingerbread";
 
 export class Ornament {
   public x: number;
@@ -43,14 +51,24 @@ export class Ornament {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.swingAngle);
 
-    if (this.type === "red-bauble" || this.type === "gold-bauble") {
-      this.drawBauble(ctx, this.type === "red-bauble" ? "#d32f2f" : "#fbc02d");
+    if (this.type === "red-bauble" || this.type === "gold-bauble" || this.type === "blue-bauble") {
+      const color =
+        this.type === "red-bauble"
+          ? "#d32f2f"
+          : this.type === "gold-bauble"
+          ? "#fbc02d"
+          : "#1976d2";
+      this.drawBauble(ctx, color);
     } else if (this.type === "wreath") {
       this.drawWreath(ctx);
     } else if (this.type === "stocking") {
       this.drawStocking(ctx);
     } else if (this.type === "tree") {
       this.drawTree(ctx);
+    } else if (this.type === "candy-cane") {
+      this.drawCandyCane(ctx);
+    } else if (this.type === "gingerbread") {
+      this.drawGingerbread(ctx);
     }
 
     ctx.restore();
@@ -170,6 +188,57 @@ export class Ornament {
     ctx.fillStyle = "#fdd835";
     ctx.beginPath();
     ctx.arc(0, 6, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawCandyCane(ctx: CanvasRenderingContext2D): void {
+    ctx.strokeStyle = "#d32f2f";
+    ctx.lineWidth = 7;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(8, 14);
+    ctx.arc(0, 14, 8, 0, Math.PI, true);
+    ctx.lineTo(-8, 48);
+    ctx.stroke();
+
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+
+    ctx.strokeStyle = "#d32f2f";
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+  }
+
+  private drawGingerbread(ctx: CanvasRenderingContext2D): void {
+    ctx.fillStyle = "#8d6e63";
+    ctx.beginPath();
+    ctx.arc(0, 16, 10, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(-8, 24, 16, 20, 4);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(-18, 26, 36, 6, 3);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.roundRect(-8, 42, 6, 14, 3);
+    ctx.roundRect(2, 42, 6, 14, 3);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(-3, 14, 1.5, 0, Math.PI * 2);
+    ctx.arc(3, 14, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#e53935";
+    ctx.beginPath();
+    ctx.arc(0, 29, 2, 0, Math.PI * 2);
+    ctx.arc(0, 36, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
