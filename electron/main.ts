@@ -1,4 +1,5 @@
 import path from "node:path";
+import { exec } from "node:child_process";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { TrayManager } from "./tray";
 import type { TaskbarBounds } from "../src/types";
@@ -125,8 +126,28 @@ ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean, forward = true) 
   }
 });
 
+let windowPollTimer: NodeJS.Timeout | null = null;
+
+function pollOpenWindows(): void {
+  const scriptPath = path.join(__dirname, "../scripts/get_windows.ps1");
+  exec(
+    `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`,
+    (err, stdout) => {
+      if (!err && stdout && mainWindow && !mainWindow.isDestroyed()) {
+        try {
+          const windows = JSON.parse(stdout.trim());
+          mainWindow.webContents.send("windows-updated", windows);
+        } catch {
+        }
+      }
+    }
+  );
+}
+
 app.whenReady().then(() => {
   createMainWindow();
+  pollOpenWindows();
+  windowPollTimer = setInterval(pollOpenWindows, 3000);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -136,6 +157,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
+  if (windowPollTimer) clearInterval(windowPollTimer);
   if (process.platform !== "darwin") {
     app.quit();
   }
