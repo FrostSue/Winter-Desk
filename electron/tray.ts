@@ -27,7 +27,7 @@ export class TrayManager {
   }
 
   private createDefaultTrayIcon(): NativeImage {
-    const iconPath = path.join(__dirname, "../assets/tray.png");
+    const iconPath = path.join(__dirname, "../assets/tray.ico");
     return nativeImage.createFromPath(iconPath);
   }
 
