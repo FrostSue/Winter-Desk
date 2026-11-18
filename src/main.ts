@@ -96,8 +96,7 @@ async function bootstrap(): Promise<void> {
     }
   });
 
-  const ctx = canvas.getContext("2d")!;
-  const entityLoop = (): void => {
+  snowEngine.onRenderEntities = (ctx: CanvasRenderingContext2D): void => {
     snowman.update(taskbar);
     eventManager.update();
     decorationManager.update();
@@ -105,10 +104,7 @@ async function bootstrap(): Promise<void> {
     decorationManager.draw(ctx);
     snowman.draw(ctx);
     eventManager.draw(ctx);
-
-    requestAnimationFrame(entityLoop);
   };
-  requestAnimationFrame(entityLoop);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
