@@ -1,0 +1,210 @@
+import { app, BrowserWindow, Menu, nativeImage, Tray } from "electron";
+import type { ScreenEvent, SnowConfig } from "../src/types";
+
+export class TrayManager {
+  private tray: Tray | null = null;
+  private currentConfig: SnowConfig = {
+    intensity: "medium",
+    flakeCount: 150,
+    wind: 0.5,
+    minSpeed: 1,
+    maxSpeed: 3,
+    accumulateOnTaskbar: true,
+    accumulateOnWindows: true
+  };
+
+  constructor(private mainWindow: BrowserWindow) {}
+
+  public init(): void {
+    const icon = this.createDefaultTrayIcon();
+    this.tray = new Tray(icon);
+    this.tray.setToolTip("WinterDesk - Winter Desktop Companion");
+    this.updateContextMenu();
+  }
+
+  private createDefaultTrayIcon(): nativeImage {
+    const size = 16;
+    const canvas = Buffer.alloc(size * size * 4);
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const isCenter = Math.abs(x - 7.5) < 1.5 && Math.abs(y - 7.5) < 1.5;
+        const isArm =
+          (Math.abs(x - 7.5) < 1.2 && y >= 2 && y <= 13) ||
+          (Math.abs(y - 7.5) < 1.2 && x >= 2 && x <= 13);
+        const isDiag1 = Math.abs(x - y) < 1.2 && x >= 3 && x <= 12;
+        const isDiag2 = Math.abs(x - (size - 1 - y)) < 1.2 && x >= 3 && x <= 12;
+
+        const idx = (y * size + x) * 4;
+        if (isCenter || isArm || isDiag1 || isDiag2) {
+          canvas[idx] = 255;
+          canvas[idx + 1] = 255;
+          canvas[idx + 2] = 255;
+          canvas[idx + 3] = 230;
+        } else {
+          canvas[idx] = 0;
+          canvas[idx + 1] = 0;
+          canvas[idx + 2] = 0;
+          canvas[idx + 3] = 0;
+        }
+      }
+    }
+    return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+  }
+
+  public updateContextMenu(): void {
+    if (!this.tray) return;
+
+    const contextMenu = Menu.buildFromTemplate([
+      {
+        label: "WinterDesk",
+        enabled: false
+      },
+      { type: "separator" },
+      {
+        label: "Snowfall",
+        submenu: [
+          {
+            label: "Off",
+            type: "radio",
+            checked: this.currentConfig.intensity === "off",
+            click: () => this.setIntensity("off", 0)
+          },
+          {
+            label: "Light",
+            type: "radio",
+            checked: this.currentConfig.intensity === "light",
+            click: () => this.setIntensity("light", 80)
+          },
+          {
+            label: "Medium",
+            type: "radio",
+            checked: this.currentConfig.intensity === "medium",
+            click: () => this.setIntensity("medium", 180)
+          },
+          {
+            label: "Heavy",
+            type: "radio",
+            checked: this.currentConfig.intensity === "heavy",
+            click: () => this.setIntensity("heavy", 350)
+          },
+          {
+            label: "Blizzard",
+            type: "radio",
+            checked: this.currentConfig.intensity === "blizzard",
+            click: () => this.setIntensity("blizzard", 600)
+          }
+        ]
+      },
+      {
+        label: "Wind",
+        submenu: [
+          {
+            label: "Calm",
+            type: "radio",
+            checked: this.currentConfig.wind === 0,
+            click: () => this.setWind(0)
+          },
+          {
+            label: "Gentle Breeze (Right)",
+            type: "radio",
+            checked: this.currentConfig.wind === 0.6,
+            click: () => this.setWind(0.6)
+          },
+          {
+            label: "Strong Wind (Right)",
+            type: "radio",
+            checked: this.currentConfig.wind === 1.8,
+            click: () => this.setWind(1.8)
+          },
+          {
+            label: "Gentle Breeze (Left)",
+            type: "radio",
+            checked: this.currentConfig.wind === -0.6,
+            click: () => this.setWind(-0.6)
+          },
+          {
+            label: "Strong Wind (Left)",
+            type: "radio",
+            checked: this.currentConfig.wind === -1.8,
+            click: () => this.setWind(-1.8)
+          }
+        ]
+      },
+      {
+        label: "Snow Accumulation on Taskbar",
+        type: "checkbox",
+        checked: this.currentConfig.accumulateOnTaskbar,
+        click: (menuItem) => {
+          this.currentConfig.accumulateOnTaskbar = menuItem.checked;
+          this.notifyConfigChange();
+        }
+      },
+      { type: "separator" },
+      {
+        label: "Send Snowplough",
+        click: () => this.triggerEvent("snowplough")
+      },
+      {
+        label: "Start Snowball Fight",
+        click: () => this.triggerEvent("snowball-fight")
+      },
+      {
+        label: "Send Santa Sleigh",
+        click: () => this.triggerEvent("santa")
+      },
+      {
+        label: "Send Gift Train",
+        click: () => this.triggerEvent("train")
+      },
+      { type: "separator" },
+      {
+        label: "Customize Snowman",
+        click: () => this.mainWindow.webContents.send("toggle-dressing-room")
+      },
+      {
+        label: "Deck Desktop",
+        click: () => this.mainWindow.webContents.send("toggle-decorations")
+      },
+      { type: "separator" },
+      {
+        label: "Launch at Windows Startup",
+        type: "checkbox",
+        checked: app.getLoginItemSettings().openAtLogin,
+        click: (menuItem) => {
+          app.setLoginItemSettings({ openAtLogin: menuItem.checked });
+        }
+      },
+      {
+        label: "Quit WinterDesk",
+        click: () => app.quit()
+      }
+    ]);
+
+    this.tray.setContextMenu(contextMenu);
+  }
+
+  private setIntensity(intensity: SnowConfig["intensity"], count: number): void {
+    this.currentConfig.intensity = intensity;
+    this.currentConfig.flakeCount = count;
+    this.updateContextMenu();
+    this.notifyConfigChange();
+  }
+
+  private setWind(wind: number): void {
+    this.currentConfig.wind = wind;
+    this.updateContextMenu();
+    this.notifyConfigChange();
+  }
+
+  private triggerEvent(event: ScreenEvent): void {
+    this.mainWindow.webContents.send("trigger-event", event);
+  }
+
+  private notifyConfigChange(): void {
+    this.mainWindow.webContents.send("config-changed", this.currentConfig);
+  }
+
+  public getConfig(): SnowConfig {
+    return this.currentConfig;
+  }
+}
