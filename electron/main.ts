@@ -79,9 +79,9 @@ function createMainWindow(): void {
     skipTaskbar: true,
     hasShadow: false,
     resizable: false,
-    focusable: false,
+    focusable: true,
     backgroundColor: "#00000000",
-    icon: path.join(__dirname, "../assets/icon.png"),
+    icon: path.join(__dirname, "../assets/icon.ico"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -91,7 +91,11 @@ function createMainWindow(): void {
 
   mainWindow.setAlwaysOnTop(true);
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  mainWindow.setIgnoreMouseEvents(true, { forward: true });
+
+  mainWindow.once("ready-to-show", () => {
+    mainWindow?.show();
+    mainWindow?.setIgnoreMouseEvents(true, { forward: true });
+  });
 
   if (process.env.VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -102,8 +106,6 @@ function createMainWindow(): void {
   mainWindow.webContents.on("console-message", (_event, _level, message, line, sourceId) => {
     console.log(`[Renderer] ${message} (${sourceId}:${line})`);
   });
-
-  mainWindow.show();
 
   trayManager = new TrayManager(mainWindow);
   trayManager.init();
