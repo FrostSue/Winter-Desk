@@ -1,6 +1,6 @@
 import { Snowflake } from "./Particle";
 import { SnowAccumulator } from "./Accumulator";
-import type { SnowConfig, TaskbarBounds } from "../types";
+import type { SnowConfig, TaskbarBounds, WindowBounds } from "../types";
 
 export class SnowEngine {
   private canvas: HTMLCanvasElement;
@@ -8,6 +8,7 @@ export class SnowEngine {
   private flakes: Snowflake[] = [];
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds | null = null;
+  private openWindows: WindowBounds[] = [];
   private config: SnowConfig = {
     intensity: "medium",
     flakeCount: 180,
@@ -38,6 +39,10 @@ export class SnowEngine {
 
   public setTaskbar(taskbar: TaskbarBounds): void {
     this.taskbar = taskbar;
+  }
+
+  public setOpenWindows(windows: WindowBounds[]): void {
+    this.openWindows = windows;
   }
 
   public setConfig(config: SnowConfig): void {
@@ -111,6 +116,21 @@ export class SnowEngine {
         if (flake.y >= taskbarTop - snowDepth) {
           this.accumulator.deposit(flake.x, flake.radius * 0.25);
           flake.reset(this.width);
+          continue;
+        }
+      }
+
+      if (this.config.accumulateOnWindows) {
+        for (const win of this.openWindows) {
+          if (
+            flake.x >= win.x &&
+            flake.x <= win.x + win.width &&
+            flake.y >= win.y - 4 &&
+            flake.y <= win.y + 4
+          ) {
+            flake.reset(this.width);
+            break;
+          }
         }
       }
     }
@@ -125,6 +145,10 @@ export class SnowEngine {
 
     if (this.config.accumulateOnTaskbar && this.taskbar) {
       this.accumulator.draw(this.ctx, this.taskbar.y);
+    }
+
+    if (this.config.accumulateOnWindows && this.openWindows.length > 0) {
+      this.drawWindowSnow(this.ctx);
     }
 
     this.ctx.save();
@@ -142,5 +166,37 @@ export class SnowEngine {
     if (this.onRenderEntities) {
       this.onRenderEntities(this.ctx);
     }
+  }
+
+  private drawWindowSnow(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    for (const win of this.openWindows) {
+      const segWidth = 32;
+      const count = Math.max(1, Math.floor(win.width / segWidth));
+
+      ctx.beginPath();
+      ctx.moveTo(win.x, win.y);
+
+      for (let i = 0; i < count; i++) {
+        const x1 = win.x + i * segWidth;
+        const x2 = Math.min(win.x + win.width, x1 + segWidth);
+        const midX = (x1 + x2) / 2;
+        const h = 5 + Math.sin(i * 1.4) * 2.5;
+        ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
+      }
+
+      ctx.closePath();
+
+      const grad = ctx.createLinearGradient(0, win.y - 8, 0, win.y);
+      grad.addColorStop(0, "rgba(255, 255, 255, 0.95)");
+      grad.addColorStop(1, "rgba(225, 240, 255, 0.85)");
+      ctx.fillStyle = grad;
+      ctx.fill();
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 }
