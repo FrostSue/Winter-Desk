@@ -65,11 +65,11 @@ export class Snowman {
   }
 
   public containsPoint(px: number, py: number): boolean {
-    const width = 64 * this.scale;
-    const height = 90 * this.scale;
+    const width = 80 * this.scale;
+    const height = 105 * this.scale;
     const left = this.x - width / 2;
     const top = this.y - height;
-    return px >= left && px <= left + width && py >= top && py <= this.y;
+    return px >= left && px <= left + width && py >= top && py <= this.y + 10;
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
