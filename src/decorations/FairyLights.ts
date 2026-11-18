@@ -9,24 +9,32 @@ export class FairyLights {
   public p2: LightHandle;
   public isDraggingP1 = false;
   public isDraggingP2 = false;
+  public isHovered = false;
   private bulbColors = ["#ff5252", "#ffd740", "#69f0ae", "#40c4ff", "#e040fb", "#ff6e40"];
   private animTimer = 0;
 
   constructor(x1: number, y1: number, x2: number, y2: number) {
-    this.p1 = { x: x1, y: y1, radius: 8 };
-    this.p2 = { x: x2, y: y2, radius: 8 };
+    this.p1 = { x: x1, y: y1, radius: 5 };
+    this.p2 = { x: x2, y: y2, radius: 5 };
   }
 
   public update(): void {
     this.animTimer += 0.04;
   }
 
+  public resize(newWidth: number): void {
+    this.p1.x = 0;
+    this.p1.y = 8;
+    this.p2.x = newWidth;
+    this.p2.y = 8;
+  }
+
   public hitTest(px: number, py: number): "p1" | "p2" | null {
     const d1 = Math.hypot(px - this.p1.x, py - this.p1.y);
-    if (d1 <= this.p1.radius + 6) return "p1";
+    if (d1 <= this.p1.radius + 8) return "p1";
 
     const d2 = Math.hypot(px - this.p2.x, py - this.p2.y);
-    if (d2 <= this.p2.radius + 6) return "p2";
+    if (d2 <= this.p2.radius + 8) return "p2";
 
     return null;
   }
@@ -34,35 +42,53 @@ export class FairyLights {
   public draw(ctx: CanvasRenderingContext2D): void {
     const dx = this.p2.x - this.p1.x;
     const dy = this.p2.y - this.p1.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance < 20) return;
+    const totalDistance = Math.hypot(dx, dy);
+    if (totalDistance < 20) return;
 
-    const sag = Math.min(80, distance * 0.18);
-    const midX = (this.p1.x + this.p2.x) / 2;
-    const midY = (this.p1.y + this.p2.y) / 2 + sag;
+    const scallopSpan = 180;
+    const scallopCount = Math.max(1, Math.round(totalDistance / scallopSpan));
+    const sagHeight = 22;
 
     ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(this.p1.x, this.p1.y);
-    ctx.quadraticCurveTo(midX, midY, this.p2.x, this.p2.y);
-    ctx.strokeStyle = "#37474f";
-    ctx.lineWidth = 2;
-    ctx.stroke();
+    let bulbIndex = 0;
 
-    const bulbCount = Math.max(4, Math.floor(distance / 32));
-    for (let i = 1; i < bulbCount; i++) {
-      const t = i / bulbCount;
-      const bx = (1 - t) * (1 - t) * this.p1.x + 2 * (1 - t) * t * midX + t * t * this.p2.x;
-      const by = (1 - t) * (1 - t) * this.p1.y + 2 * (1 - t) * t * midY + t * t * this.p2.y;
+    for (let s = 0; s < scallopCount; s++) {
+      const tStart = s / scallopCount;
+      const tEnd = (s + 1) / scallopCount;
 
-      const color = this.bulbColors[i % this.bulbColors.length];
-      const intensity = 0.5 + 0.5 * Math.sin(this.animTimer * 2 + i * 1.3);
+      const sx1 = this.p1.x + dx * tStart;
+      const sy1 = this.p1.y + dy * tStart;
+      const sx2 = this.p1.x + dx * tEnd;
+      const sy2 = this.p1.y + dy * tEnd;
 
-      this.drawBulb(ctx, bx, by, color, intensity);
+      const midX = (sx1 + sx2) / 2;
+      const midY = (sy1 + sy2) / 2 + sagHeight;
+
+      ctx.beginPath();
+      ctx.moveTo(sx1, sy1);
+      ctx.quadraticCurveTo(midX, midY, sx2, sy2);
+      ctx.strokeStyle = "rgba(45, 55, 72, 0.85)";
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+
+      const bulbsPerScallop = 7;
+      for (let b = 1; b < bulbsPerScallop; b++) {
+        const bt = b / bulbsPerScallop;
+        const bx = (1 - bt) * (1 - bt) * sx1 + 2 * (1 - bt) * bt * midX + bt * bt * sx2;
+        const by = (1 - bt) * (1 - bt) * sy1 + 2 * (1 - bt) * bt * midY + bt * bt * sy2;
+
+        const color = this.bulbColors[bulbIndex % this.bulbColors.length];
+        const intensity = 0.5 + 0.5 * Math.sin(this.animTimer * 2.5 + bulbIndex * 1.2);
+
+        this.drawBulb(ctx, bx, by, color, intensity);
+        bulbIndex++;
+      }
     }
 
-    this.drawHandle(ctx, this.p1, this.isDraggingP1);
-    this.drawHandle(ctx, this.p2, this.isDraggingP2);
+    if (this.isHovered || this.isDraggingP1 || this.isDraggingP2) {
+      this.drawHandle(ctx, this.p1, this.isDraggingP1);
+      this.drawHandle(ctx, this.p2, this.isDraggingP2);
+    }
 
     ctx.restore();
   }
@@ -75,21 +101,21 @@ export class FairyLights {
     intensity: number
   ): void {
     ctx.fillStyle = "#263238";
-    ctx.fillRect(x - 2, y - 2, 4, 3);
+    ctx.fillRect(x - 1.5, y - 2, 3, 2.5);
 
-    const glowRadius = 8 + intensity * 8;
-    const glow = ctx.createRadialGradient(x, y + 5, 1, x, y + 5, glowRadius);
+    const glowRadius = 7 + intensity * 7;
+    const glow = ctx.createRadialGradient(x, y + 4, 1, x, y + 4, glowRadius);
     glow.addColorStop(0, color);
-    glow.addColorStop(0.5, color);
+    glow.addColorStop(0.6, color);
     glow.addColorStop(1, "rgba(0,0,0,0)");
 
     ctx.fillStyle = glow;
     ctx.beginPath();
-    ctx.arc(x, y + 5, glowRadius, 0, Math.PI * 2);
+    ctx.arc(x, y + 4, glowRadius, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.ellipse(x, y + 5, 3.5, 5, 0, 0, Math.PI * 2);
+    ctx.ellipse(x, y + 4, 3, 4.5, 0, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
     ctx.fill();
   }
@@ -97,9 +123,9 @@ export class FairyLights {
   private drawHandle(ctx: CanvasRenderingContext2D, handle: LightHandle, isActive: boolean): void {
     ctx.beginPath();
     ctx.arc(handle.x, handle.y, handle.radius, 0, Math.PI * 2);
-    ctx.fillStyle = isActive ? "#4fc3f7" : "rgba(255, 255, 255, 0.7)";
-    ctx.strokeStyle = "#263238";
-    ctx.lineWidth = 2;
+    ctx.fillStyle = isActive ? "#4fc3f7" : "rgba(255, 255, 255, 0.85)";
+    ctx.strokeStyle = "#37474f";
+    ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
   }
