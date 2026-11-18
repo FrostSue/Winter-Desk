@@ -68,12 +68,23 @@ export class EventManager {
     if (event === "snowplough") {
       this.spawnSnowplough();
     } else if (event === "snowball-fight") {
-      this.spawnSnowballFight();
+      if (this.fighters.length > 0) {
+        this.stopSnowballFight();
+      } else {
+        this.spawnSnowballFight();
+      }
+    } else if (event === "stop-snowball-fight") {
+      this.stopSnowballFight();
     } else if (event === "santa") {
       this.spawnSanta();
     } else if (event === "train") {
       this.spawnTrain();
     }
+  }
+
+  public stopSnowballFight(): void {
+    this.fighters = [];
+    this.snowballs = [];
   }
 
   private spawnSnowplough(): void {
