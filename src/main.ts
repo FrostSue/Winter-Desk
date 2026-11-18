@@ -1,6 +1,8 @@
 import { SnowEngine } from "./snow/SnowEngine";
 import { Snowman } from "./characters/Snowman";
+import { SnowballBuilder } from "./characters/SnowballBuilder";
 import { DressingRoomModal } from "./ui/DressingRoom";
+import { DecorationPalette } from "./ui/DecorationPalette";
 import { EventManager } from "./events/EventManager";
 import { DecorationManager } from "./decorations/DecorationManager";
 import type { TaskbarBounds } from "./types";
@@ -30,8 +32,14 @@ async function bootstrap(): Promise<void> {
 
   const snowman = new Snowman(window.innerWidth * 0.75, taskbar);
   const dressingRoom = new DressingRoomModal(snowman);
-  const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
   const decorationManager = new DecorationManager();
+  const decorationPalette = new DecorationPalette(decorationManager);
+  const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
+  const snowballBuilder = new SnowballBuilder(taskbar);
+
+  snowballBuilder.onSnowmanCreated = (newSnowman) => {
+    snowman.setPosition(newSnowman.x, newSnowman.y);
+  };
 
   if (window.winterDesk) {
     window.winterDesk.onConfigChange((config) => {
@@ -47,19 +55,61 @@ async function bootstrap(): Promise<void> {
     });
 
     window.winterDesk.onToggleDecorations(() => {
-      dressingRoom.toggle();
+      decorationPalette.toggle();
+    });
+
+    window.winterDesk.onWindowsUpdated((windows) => {
+      snowEngine.setOpenWindows(windows);
     });
   }
 
   let isHoveringSnowman = false;
+  let isDraggingSnowman = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let hasMovedSignificantly = false;
 
   window.addEventListener("mousedown", (e) => {
-    decorationManager.handleMouseDown(e.clientX, e.clientY);
+    if (e.button === 2) {
+      decorationManager.handleMouseDown(e.clientX, e.clientY, 2);
+      return;
+    }
+
+    if (snowman.containsPoint(e.clientX, e.clientY)) {
+      isDraggingSnowman = true;
+      hasMovedSignificantly = false;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+      window.winterDesk?.setIgnoreMouseEvents(false);
+      return;
+    }
+
+    if (e.clientY >= taskbar.y - 20) {
+      snowballBuilder.startAt(e.clientX, e.clientY);
+      window.winterDesk?.setIgnoreMouseEvents(false);
+      return;
+    }
+
+    decorationManager.handleMouseDown(e.clientX, e.clientY, 0);
   });
 
   window.addEventListener("mousemove", (e) => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
+
+    if (isDraggingSnowman) {
+      const dist = Math.hypot(mouseX - dragStartX, mouseY - dragStartY);
+      if (dist > 6) {
+        hasMovedSignificantly = true;
+      }
+      snowman.setPosition(mouseX, mouseY);
+      return;
+    }
+
+    if (snowballBuilder.isBuilding) {
+      snowballBuilder.handleMouseMove(mouseX, mouseY);
+      return;
+    }
 
     const decorHandled = decorationManager.handleMouseMove(mouseX, mouseY);
     const hovering = snowman.containsPoint(mouseX, mouseY);
@@ -71,28 +121,43 @@ async function bootstrap(): Promise<void> {
     } else if (!hovering && isHoveringSnowman) {
       isHoveringSnowman = false;
       snowman.setWaving(false);
-      if (!decorHandled) {
+      if (!decorHandled && !snowballBuilder.isBuilding) {
         window.winterDesk?.setIgnoreMouseEvents(true, true);
       }
     }
   });
 
-  window.addEventListener("mouseup", () => {
+  window.addEventListener("mouseup", (e) => {
+    if (isDraggingSnowman) {
+      isDraggingSnowman = false;
+      if (!hasMovedSignificantly && snowman.containsPoint(e.clientX, e.clientY)) {
+        dressingRoom.toggle();
+      }
+      window.winterDesk?.setIgnoreMouseEvents(true, true);
+      return;
+    }
+
+    if (snowballBuilder.isBuilding) {
+      snowballBuilder.handleMouseUp();
+      window.winterDesk?.setIgnoreMouseEvents(true, true);
+      return;
+    }
+
     decorationManager.handleMouseUp();
   });
 
-  window.addEventListener("click", (e) => {
-    if (snowman.containsPoint(e.clientX, e.clientY)) {
-      dressingRoom.toggle();
-    }
+  window.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
   });
 
   window.addEventListener("resize", async () => {
+    decorationManager.resize(window.innerWidth);
     if (window.winterDesk?.getTaskbarBounds) {
       const updatedTaskbar = await window.winterDesk.getTaskbarBounds();
       taskbar = updatedTaskbar;
       snowEngine.setTaskbar(updatedTaskbar);
       eventManager.setTaskbar(updatedTaskbar);
+      snowballBuilder.setTaskbar(updatedTaskbar);
     }
   });
 
@@ -104,6 +169,7 @@ async function bootstrap(): Promise<void> {
     decorationManager.draw(ctx);
     snowman.draw(ctx);
     eventManager.draw(ctx);
+    snowballBuilder.draw(ctx);
   };
 }
 
