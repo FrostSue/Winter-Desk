@@ -55,6 +55,23 @@ export class SnowEngine {
     return this.accumulator;
   }
 
+  public isNearSnow(px: number, py: number): boolean {
+    if (this.taskbar && py >= this.taskbar.y - 30 && py <= this.taskbar.y + 12) {
+      return true;
+    }
+    for (const win of this.openWindows) {
+      if (
+        px >= win.x &&
+        px <= win.x + win.width &&
+        py >= win.y - 24 &&
+        py <= win.y + 12
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private handleResize(): void {
     const dpr = window.devicePixelRatio || 1;
     this.width = window.innerWidth;
@@ -171,7 +188,7 @@ export class SnowEngine {
   private drawWindowSnow(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     for (const win of this.openWindows) {
-      const segWidth = 32;
+      const segWidth = 28;
       const count = Math.max(1, Math.floor(win.width / segWidth));
 
       ctx.beginPath();
@@ -181,19 +198,22 @@ export class SnowEngine {
         const x1 = win.x + i * segWidth;
         const x2 = Math.min(win.x + win.width, x1 + segWidth);
         const midX = (x1 + x2) / 2;
-        const h = 5 + Math.sin(i * 1.4) * 2.5;
+        const h = 7 + Math.sin(i * 1.5) * 3;
         ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
       }
 
       ctx.closePath();
 
-      const grad = ctx.createLinearGradient(0, win.y - 8, 0, win.y);
-      grad.addColorStop(0, "rgba(255, 255, 255, 0.95)");
-      grad.addColorStop(1, "rgba(225, 240, 255, 0.85)");
+      const grad = ctx.createLinearGradient(0, win.y - 10, 0, win.y);
+      grad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
+      grad.addColorStop(0.6, "rgba(235, 245, 255, 0.92)");
+      grad.addColorStop(1, "rgba(215, 235, 255, 0.88)");
       ctx.fillStyle = grad;
+      ctx.shadowColor = "rgba(180, 215, 255, 0.5)";
+      ctx.shadowBlur = 4;
       ctx.fill();
 
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
       ctx.lineWidth = 1;
       ctx.stroke();
     }
