@@ -6,6 +6,13 @@ export interface TaskbarBounds {
   position: "bottom" | "top" | "left" | "right";
 }
 
+export interface WindowBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 export interface SnowConfig {
   intensity: "off" | "light" | "medium" | "heavy" | "blizzard";
   flakeCount: number;
@@ -32,6 +39,7 @@ export interface WinterDeskAPI {
   onTriggerEvent: (callback: (event: ScreenEvent) => void) => void;
   onToggleDressingRoom: (callback: () => void) => void;
   onToggleDecorations: (callback: () => void) => void;
+  onWindowsUpdated: (callback: (windows: WindowBounds[]) => void) => void;
 }
 
 declare global {
