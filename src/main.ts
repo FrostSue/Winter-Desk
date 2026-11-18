@@ -2,6 +2,7 @@ import { SnowEngine } from "./snow/SnowEngine";
 import { Snowman } from "./characters/Snowman";
 import { DressingRoomModal } from "./ui/DressingRoom";
 import { EventManager } from "./events/EventManager";
+import { DecorationManager } from "./decorations/DecorationManager";
 import type { TaskbarBounds } from "./types";
 
 async function bootstrap(): Promise<void> {
@@ -30,6 +31,7 @@ async function bootstrap(): Promise<void> {
   const snowman = new Snowman(window.innerWidth * 0.75, taskbar);
   const dressingRoom = new DressingRoomModal(snowman);
   const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
+  const decorationManager = new DecorationManager();
 
   if (window.winterDesk) {
     window.winterDesk.onConfigChange((config) => {
@@ -51,9 +53,15 @@ async function bootstrap(): Promise<void> {
 
   let isHoveringSnowman = false;
 
+  window.addEventListener("mousedown", (e) => {
+    decorationManager.handleMouseDown(e.clientX, e.clientY);
+  });
+
   window.addEventListener("mousemove", (e) => {
     const mouseX = e.clientX;
     const mouseY = e.clientY;
+
+    const decorHandled = decorationManager.handleMouseMove(mouseX, mouseY);
     const hovering = snowman.containsPoint(mouseX, mouseY);
 
     if (hovering && !isHoveringSnowman) {
@@ -63,8 +71,14 @@ async function bootstrap(): Promise<void> {
     } else if (!hovering && isHoveringSnowman) {
       isHoveringSnowman = false;
       snowman.setWaving(false);
-      window.winterDesk?.setIgnoreMouseEvents(true, true);
+      if (!decorHandled) {
+        window.winterDesk?.setIgnoreMouseEvents(true, true);
+      }
     }
+  });
+
+  window.addEventListener("mouseup", () => {
+    decorationManager.handleMouseUp();
   });
 
   window.addEventListener("click", (e) => {
@@ -86,7 +100,9 @@ async function bootstrap(): Promise<void> {
   const entityLoop = (): void => {
     snowman.update(taskbar);
     eventManager.update();
+    decorationManager.update();
 
+    decorationManager.draw(ctx);
     snowman.draw(ctx);
     eventManager.draw(ctx);
 
