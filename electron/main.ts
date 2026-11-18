@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import { exec } from "node:child_process";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
@@ -65,6 +66,16 @@ function calculateTaskbarBounds(): TaskbarBounds {
   };
 }
 
+function getWindowScriptPath(): string {
+  const devPath = path.join(__dirname, "../scripts/get_windows.ps1");
+  const packagedPath = path.join(app.getAppPath(), "scripts/get_windows.ps1");
+  const resourcePath = path.join(process.resourcesPath, "app/scripts/get_windows.ps1");
+
+  if (fs.existsSync(devPath)) return devPath;
+  if (fs.existsSync(packagedPath)) return packagedPath;
+  return resourcePath;
+}
+
 function createMainWindow(): void {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { bounds } = primaryDisplay;
@@ -129,9 +140,10 @@ ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean, forward = true) 
 let windowPollTimer: NodeJS.Timeout | null = null;
 
 function pollOpenWindows(): void {
-  const scriptPath = path.join(__dirname, "../scripts/get_windows.ps1");
+  const scriptPath = getWindowScriptPath();
   exec(
-    `powershell -NoProfile -ExecutionPolicy Bypass -File "${scriptPath}"`,
+    `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}"`,
+    { windowsHide: true },
     (err, stdout) => {
       if (!err && stdout && mainWindow && !mainWindow.isDestroyed()) {
         try {
