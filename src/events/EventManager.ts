@@ -30,10 +30,28 @@ interface FighterSnowman {
   speechTimer: number;
 }
 
+interface SantaFlyer {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  trail: { x: number; y: number; alpha: number; size: number }[];
+}
+
+interface GiftTrainVehicle {
+  x: number;
+  y: number;
+  speed: number;
+  wheelRotation: number;
+  smoke: { x: number; y: number; radius: number; alpha: number }[];
+}
+
 export class EventManager {
   private activePlough: SnowploughVehicle | null = null;
   private fighters: FighterSnowman[] = [];
   private snowballs: SnowballProjectile[] = [];
+  private activeSanta: SantaFlyer | null = null;
+  private activeTrain: GiftTrainVehicle | null = null;
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds;
 
@@ -51,6 +69,10 @@ export class EventManager {
       this.spawnSnowplough();
     } else if (event === "snowball-fight") {
       this.spawnSnowballFight();
+    } else if (event === "santa") {
+      this.spawnSanta();
+    } else if (event === "train") {
+      this.spawnTrain();
     }
   }
 
@@ -91,6 +113,26 @@ export class EventManager {
     ];
   }
 
+  private spawnSanta(): void {
+    this.activeSanta = {
+      x: -150,
+      y: 90,
+      vx: 4.5,
+      vy: 0.2,
+      trail: []
+    };
+  }
+
+  private spawnTrain(): void {
+    this.activeTrain = {
+      x: -260,
+      y: this.taskbar.y,
+      speed: 2.8,
+      wheelRotation: 0,
+      smoke: []
+    };
+  }
+
   public update(): void {
     if (this.activePlough) {
       this.activePlough.x += this.activePlough.speed;
@@ -100,6 +142,60 @@ export class EventManager {
 
       if (this.activePlough.x > window.innerWidth + 150) {
         this.activePlough = null;
+      }
+    }
+
+    if (this.activeSanta) {
+      this.activeSanta.x += this.activeSanta.vx;
+      this.activeSanta.y += Math.sin(this.activeSanta.x * 0.015) * 1.5;
+
+      this.activeSanta.trail.push({
+        x: this.activeSanta.x,
+        y: this.activeSanta.y + 12,
+        alpha: 0.9,
+        size: 3 + Math.random() * 3
+      });
+
+      for (let i = this.activeSanta.trail.length - 1; i >= 0; i--) {
+        const star = this.activeSanta.trail[i];
+        star.alpha -= 0.02;
+        star.y += 0.3;
+        if (star.alpha <= 0) {
+          this.activeSanta.trail.splice(i, 1);
+        }
+      }
+
+      if (this.activeSanta.x > window.innerWidth + 200) {
+        this.activeSanta = null;
+      }
+    }
+
+    if (this.activeTrain) {
+      this.activeTrain.x += this.activeTrain.speed;
+      this.activeTrain.wheelRotation += 0.15;
+
+      if (Math.random() < 0.3) {
+        this.activeTrain.smoke.push({
+          x: this.activeTrain.x + 65,
+          y: this.activeTrain.y - 48,
+          radius: 4,
+          alpha: 0.8
+        });
+      }
+
+      for (let i = this.activeTrain.smoke.length - 1; i >= 0; i--) {
+        const p = this.activeTrain.smoke[i];
+        p.x -= 0.5;
+        p.y -= 1.2;
+        p.radius += 0.4;
+        p.alpha -= 0.02;
+        if (p.alpha <= 0) {
+          this.activeTrain.smoke.splice(i, 1);
+        }
+      }
+
+      if (this.activeTrain.x > window.innerWidth + 300) {
+        this.activeTrain = null;
       }
     }
 
@@ -161,6 +257,14 @@ export class EventManager {
       this.drawSnowplough(ctx, this.activePlough);
     }
 
+    if (this.activeSanta) {
+      this.drawSanta(ctx, this.activeSanta);
+    }
+
+    if (this.activeTrain) {
+      this.drawTrain(ctx, this.activeTrain);
+    }
+
     for (const fighter of this.fighters) {
       this.drawFighter(ctx, fighter);
     }
@@ -206,6 +310,119 @@ export class EventManager {
 
     this.drawWheel(ctx, 14, -6, plough.wheelRotation);
     this.drawWheel(ctx, 42, -6, plough.wheelRotation);
+
+    ctx.restore();
+  }
+
+  private drawSanta(ctx: CanvasRenderingContext2D, santa: SantaFlyer): void {
+    ctx.save();
+
+    for (const star of santa.trail) {
+      ctx.fillStyle = `rgba(255, 235, 59, ${star.alpha})`;
+      ctx.beginPath();
+      ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.translate(santa.x, santa.y);
+
+    ctx.fillStyle = "#8d6e63";
+    ctx.beginPath();
+    ctx.roundRect(50, -4, 28, 16, 6);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.moveTo(74, -2);
+    ctx.lineTo(82, -14);
+    ctx.lineTo(88, -18);
+    ctx.moveTo(82, -14);
+    ctx.lineTo(78, -18);
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath();
+    ctx.roundRect(0, -10, 42, 22, [6, 12, 10, 10]);
+    ctx.fill();
+
+    ctx.strokeStyle = "#ffd54f";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(-6, 14);
+    ctx.lineTo(44, 14);
+    ctx.quadraticCurveTo(52, 14, 52, 6);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(22, -14, 7, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath();
+    ctx.moveTo(15, -16);
+    ctx.lineTo(29, -16);
+    ctx.lineTo(22, -26);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  private drawTrain(ctx: CanvasRenderingContext2D, train: GiftTrainVehicle): void {
+    ctx.save();
+    ctx.translate(train.x, train.y);
+
+    for (const puff of train.smoke) {
+      ctx.fillStyle = `rgba(230, 240, 255, ${puff.alpha})`;
+      ctx.beginPath();
+      ctx.arc(puff.x - train.x, puff.y - train.y, puff.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = "#b71c1c";
+    ctx.beginPath();
+    ctx.roundRect(0, -38, 75, 30, [4, 8, 2, 2]);
+    ctx.fill();
+
+    ctx.fillStyle = "#263238";
+    ctx.fillRect(55, -48, 12, 12);
+    ctx.fillRect(8, -44, 24, 8);
+
+    ctx.fillStyle = "#fff59d";
+    ctx.fillRect(12, -34, 16, 14);
+
+    ctx.fillStyle = "#2e7d32";
+    ctx.beginPath();
+    ctx.roundRect(82, -32, 65, 24, 4);
+    ctx.fill();
+
+    ctx.fillStyle = "#e53935";
+    ctx.fillRect(96, -42, 16, 12);
+    ctx.fillStyle = "#ffd54f";
+    ctx.fillRect(102, -42, 4, 12);
+
+    ctx.fillStyle = "#f57c00";
+    ctx.beginPath();
+    ctx.roundRect(154, -32, 65, 24, 4);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.roundRect(168, -46, 24, 16, 2);
+    ctx.fill();
+    ctx.strokeStyle = "#e53935";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    this.drawWheel(ctx, 16, -6, train.wheelRotation);
+    this.drawWheel(ctx, 38, -6, train.wheelRotation);
+    this.drawWheel(ctx, 60, -6, train.wheelRotation);
+    this.drawWheel(ctx, 96, -6, train.wheelRotation);
+    this.drawWheel(ctx, 134, -6, train.wheelRotation);
+    this.drawWheel(ctx, 168, -6, train.wheelRotation);
+    this.drawWheel(ctx, 204, -6, train.wheelRotation);
 
     ctx.restore();
   }
