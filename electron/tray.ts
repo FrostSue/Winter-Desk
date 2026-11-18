@@ -1,3 +1,4 @@
+import path from "node:path";
 import { app, BrowserWindow, Menu, nativeImage, type NativeImage, Tray } from "electron";
 import type { ScreenEvent, SnowConfig } from "../src/types";
 
@@ -19,36 +20,15 @@ export class TrayManager {
     const icon = this.createDefaultTrayIcon();
     this.tray = new Tray(icon);
     this.tray.setToolTip("WinterDesk - Winter Desktop Companion");
+    this.tray.on("click", () => {
+      this.tray?.popUpContextMenu();
+    });
     this.updateContextMenu();
   }
 
   private createDefaultTrayIcon(): NativeImage {
-    const size = 16;
-    const canvas = Buffer.alloc(size * size * 4);
-    for (let y = 0; y < size; y++) {
-      for (let x = 0; x < size; x++) {
-        const isCenter = Math.abs(x - 7.5) < 1.5 && Math.abs(y - 7.5) < 1.5;
-        const isArm =
-          (Math.abs(x - 7.5) < 1.2 && y >= 2 && y <= 13) ||
-          (Math.abs(y - 7.5) < 1.2 && x >= 2 && x <= 13);
-        const isDiag1 = Math.abs(x - y) < 1.2 && x >= 3 && x <= 12;
-        const isDiag2 = Math.abs(x - (size - 1 - y)) < 1.2 && x >= 3 && x <= 12;
-
-        const idx = (y * size + x) * 4;
-        if (isCenter || isArm || isDiag1 || isDiag2) {
-          canvas[idx] = 255;
-          canvas[idx + 1] = 255;
-          canvas[idx + 2] = 255;
-          canvas[idx + 3] = 230;
-        } else {
-          canvas[idx] = 0;
-          canvas[idx + 1] = 0;
-          canvas[idx + 2] = 0;
-          canvas[idx + 3] = 0;
-        }
-      }
-    }
-    return nativeImage.createFromBuffer(canvas, { width: size, height: size });
+    const iconPath = path.join(__dirname, "../assets/tray.png");
+    return nativeImage.createFromPath(iconPath);
   }
 
   public updateContextMenu(): void {
