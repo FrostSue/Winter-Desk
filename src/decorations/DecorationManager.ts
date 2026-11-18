@@ -10,18 +10,30 @@ export class DecorationManager {
 
   constructor() {
     const screenW = window.innerWidth;
-    this.lights.push(new FairyLights(screenW * 0.1, 40, screenW * 0.9, 40));
-    this.ornaments.push(new Ornament(screenW * 0.25, 45, "red-bauble"));
-    this.ornaments.push(new Ornament(screenW * 0.5, 52, "wreath"));
-    this.ornaments.push(new Ornament(screenW * 0.75, 45, "gold-bauble"));
+    this.lights.push(new FairyLights(0, 6, screenW, 6));
+    this.ornaments.push(new Ornament(screenW * 0.2, 35, "red-bauble"));
+    this.ornaments.push(new Ornament(screenW * 0.5, 38, "wreath"));
+    this.ornaments.push(new Ornament(screenW * 0.8, 35, "gold-bauble"));
+  }
+
+  public resize(newWidth: number): void {
+    if (this.lights.length > 0) {
+      this.lights[0].resize(newWidth);
+    }
   }
 
   public addOrnament(x: number, y: number, type: OrnamentType): void {
     this.ornaments.push(new Ornament(x, y, type));
   }
 
-  public addLights(x1: number, y1: number, x2: number, y2: number): void {
-    this.lights.push(new FairyLights(x1, y1, x2, y2));
+  public removeOrnamentAt(px: number, py: number): boolean {
+    for (let i = this.ornaments.length - 1; i >= 0; i--) {
+      if (this.ornaments[i].containsPoint(px, py)) {
+        this.ornaments.splice(i, 1);
+        return true;
+      }
+    }
+    return false;
   }
 
   public update(): void {
@@ -42,7 +54,11 @@ export class DecorationManager {
     }
   }
 
-  public handleMouseDown(px: number, py: number): boolean {
+  public handleMouseDown(px: number, py: number, button = 0): boolean {
+    if (button === 2) {
+      return this.removeOrnamentAt(px, py);
+    }
+
     for (const light of this.lights) {
       const hit = light.hitTest(px, py);
       if (hit) {
@@ -84,10 +100,9 @@ export class DecorationManager {
 
     let hovering = false;
     for (const light of this.lights) {
-      if (light.hitTest(px, py)) {
-        hovering = true;
-        break;
-      }
+      const hit = light.hitTest(px, py);
+      light.isHovered = hit !== null;
+      if (hit) hovering = true;
     }
 
     if (!hovering) {
