@@ -22,6 +22,7 @@ export class SnowEngine {
   private animFrameId: number | null = null;
   private width = 0;
   private height = 0;
+  public onRenderEntities?: (ctx: CanvasRenderingContext2D) => void;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -137,5 +138,9 @@ export class SnowEngine {
       this.ctx.fill();
     }
     this.ctx.restore();
+
+    if (this.onRenderEntities) {
+      this.onRenderEntities(this.ctx);
+    }
   }
 }
