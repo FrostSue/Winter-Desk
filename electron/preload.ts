@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { ScreenEvent, SnowConfig } from "../src/types";
+import type { ScreenEvent, SnowConfig, WindowBounds } from "../src/types";
 
 contextBridge.exposeInMainWorld("winterDesk", {
   getTaskbarBounds: () => ipcRenderer.invoke("get-taskbar-bounds"),
@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld("winterDesk", {
   },
   onToggleDecorations: (callback: () => void) => {
     ipcRenderer.on("toggle-decorations", () => callback());
+  },
+  onWindowsUpdated: (callback: (windows: WindowBounds[]) => void) => {
+    ipcRenderer.on("windows-updated", (_event, windows) => callback(windows));
   }
 });
