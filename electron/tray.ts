@@ -129,6 +129,10 @@ export class TrayManager {
         click: () => this.triggerEvent("snowball-fight")
       },
       {
+        label: "Stop Snowball Fight",
+        click: () => this.triggerEvent("stop-snowball-fight")
+      },
+      {
         label: "Send Santa Sleigh",
         click: () => this.triggerEvent("santa")
       },
