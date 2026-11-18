@@ -80,6 +80,8 @@ function createMainWindow(): void {
     hasShadow: false,
     resizable: false,
     focusable: false,
+    backgroundColor: "#00000000",
+    icon: path.join(__dirname, "../assets/icon.png"),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -87,7 +89,7 @@ function createMainWindow(): void {
     }
   });
 
-  mainWindow.setAlwaysOnTop(true, "screen-saver");
+  mainWindow.setAlwaysOnTop(true);
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   mainWindow.setIgnoreMouseEvents(true, { forward: true });
 
@@ -96,6 +98,8 @@ function createMainWindow(): void {
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+
+  mainWindow.show();
 
   trayManager = new TrayManager(mainWindow);
   trayManager.init();
