@@ -1,4 +1,4 @@
-import type { SnowmanConfig, TaskbarBounds } from "../types";
+import type { SnowmanConfig, TaskbarBounds, WindowBounds } from "../types";
 
 export class Snowman {
   public x: number;
@@ -9,6 +9,9 @@ export class Snowman {
   public hasCustomPosition = false;
   public isRemovable = false;
   public isRidingTrain = false;
+  public attachedWindowId: number | null = null;
+  public windowOffsetX = 0;
+  public windowOffsetY = 0;
   public id: string = Math.random().toString(36).slice(2);
   public spawnProgress = 0;
   public isWaving = false;
@@ -61,6 +64,17 @@ export class Snowman {
     this.x = newX;
     this.y = newY;
     this.hasCustomPosition = true;
+  }
+
+  public updateWindows(windows: WindowBounds[]): void {
+    if (this.attachedWindowId !== null && !this.isDragging && !this.isRidingTrain) {
+      const win = windows.find((w) => w.id === this.attachedWindowId);
+      if (win) {
+        this.x = win.x + this.windowOffsetX;
+        this.y = win.y + this.windowOffsetY;
+        this.hasCustomPosition = true;
+      }
+    }
   }
 
   public setWaving(waving: boolean): void {
