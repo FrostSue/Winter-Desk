@@ -35,6 +35,17 @@ export class DecorationPalette {
     document.body.appendChild(this.container);
   }
 
+  public containsPoint(mx: number, my: number): boolean {
+    if (!this.isOpen) return false;
+    const rect = this.container.getBoundingClientRect();
+    return (
+      mx >= rect.left &&
+      mx <= rect.right &&
+      my >= rect.top &&
+      my <= rect.bottom
+    );
+  }
+
   public toggle(): void {
     if (this.isOpen) {
       this.close();
@@ -47,7 +58,6 @@ export class DecorationPalette {
     this.isOpen = true;
     this.container.style.display = "flex";
     this.render();
-    window.winterDesk?.setIgnoreMouseEvents(false);
   }
 
   public close(): void {
@@ -82,9 +92,7 @@ export class DecorationPalette {
       window.winterDesk?.setIgnoreMouseEvents(false);
     });
     this.container.addEventListener("mouseleave", () => {
-      if (!this.isOpen) {
-        window.winterDesk?.setIgnoreMouseEvents(true, true);
-      }
+      window.winterDesk?.setIgnoreMouseEvents(true, true);
     });
   }
 
@@ -98,17 +106,26 @@ export class DecorationPalette {
       </div>
 
       <div style="font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 12px; line-height: 1.4;">
-        Click an item to place it. Drag anywhere on screen, drag lights wire to adjust height, right-click to delete.
+        Click an item to place it. Drag handles on garland or diamond in middle to sag wire. Right-click ornament to remove.
       </div>
 
       <div style="font-size: 12px; font-weight: 600; color: #90caf9; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-        <span>✨</span> Fairy Lights Style & Height
+        <span>✨</span> Fairy Lights Color & Style
       </div>
-      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+      <div style="display: flex; gap: 6px; margin-bottom: 8px;">
         <button class="light-theme-btn" data-theme="rainbow" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; font-size: 11px; cursor: pointer;">🌈 Rainbow</button>
         <button class="light-theme-btn" data-theme="warm-white" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; font-size: 11px; cursor: pointer;">✨ Warm</button>
         <button class="light-theme-btn" data-theme="ice-blue" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; font-size: 11px; cursor: pointer;">❄️ Ice</button>
         <button class="light-theme-btn" data-theme="candy" style="flex: 1; padding: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; color: #fff; font-size: 11px; cursor: pointer;">🎄 Candy</button>
+      </div>
+
+      <div style="font-size: 11px; font-weight: 500; color: rgba(255,255,255,0.7); margin-bottom: 4px;">
+        Curvature & Sag:
+      </div>
+      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+        <button class="light-sag-btn" data-sag="2" style="flex: 1; padding: 5px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 11px; cursor: pointer;">Straight</button>
+        <button class="light-sag-btn" data-sag="18" style="flex: 1; padding: 5px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 11px; cursor: pointer;">Gentle Sag</button>
+        <button class="light-sag-btn" data-sag="45" style="flex: 1; padding: 5px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 11px; cursor: pointer;">Deep Drape</button>
       </div>
 
       <div style="font-size: 12px; font-weight: 600; color: #a5d6a7; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
@@ -218,6 +235,15 @@ export class DecorationPalette {
         const theme = (e.currentTarget as HTMLElement).getAttribute("data-theme") as LightColorTheme;
         if (theme) {
           this.manager.setLightsTheme(theme);
+        }
+      });
+    });
+
+    this.container.querySelectorAll(".light-sag-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        const sag = Number((e.currentTarget as HTMLElement).getAttribute("data-sag"));
+        if (!isNaN(sag)) {
+          this.manager.setLightsSag(sag);
         }
       });
     });
