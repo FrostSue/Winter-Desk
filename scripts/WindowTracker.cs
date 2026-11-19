@@ -82,7 +82,7 @@ namespace WindowTracker {
                     Console.Out.Flush();
                 }
 
-                Thread.Sleep(33);
+                Thread.Sleep(25);
             }
         }
     }
