@@ -7,6 +7,9 @@ import type { TaskbarBounds } from "../src/types";
 
 app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
 app.commandLine.appendSwitch("disable-backgrounding-occluded-windows", "true");
+app.commandLine.appendSwitch("disable-breakpad");
+app.commandLine.appendSwitch("disable-component-update");
+app.commandLine.appendSwitch("enable-zero-copy");
 
 let mainWindow: BrowserWindow | null = null;
 let trayManager: TrayManager | null = null;
