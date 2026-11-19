@@ -5,18 +5,20 @@ export class WindowAccumulator {
   public maxDepth: number;
   private decayRate: number;
 
-  constructor(width: number, columnWidth = 6, initialDepth = 3.2, maxDepth = 12) {
+  constructor(width: number, columnWidth = 6, initialDepth = 0.0, maxDepth = 12) {
     this.width = width;
     this.columnWidth = columnWidth;
     this.maxDepth = maxDepth;
-    this.decayRate = 0.0003;
+    this.decayRate = 0.0004;
     const numColumns = Math.max(1, Math.ceil(width / columnWidth));
     this.heights = new Float32Array(numColumns);
-    for (let i = 0; i < numColumns; i++) {
-      this.heights[i] = Math.max(
-        0.8,
-        Math.min(maxDepth, initialDepth + Math.sin(i * 0.35) * 0.9 + (Math.random() - 0.5) * 0.5)
-      );
+    if (initialDepth > 0) {
+      for (let i = 0; i < numColumns; i++) {
+        this.heights[i] = Math.max(
+          0,
+          Math.min(maxDepth, initialDepth + Math.sin(i * 0.35) * 0.5 + (Math.random() - 0.5) * 0.3)
+        );
+      }
     }
   }
 
@@ -26,9 +28,6 @@ export class WindowAccumulator {
     const copyLen = Math.min(this.heights.length, newNumColumns);
     for (let i = 0; i < copyLen; i++) {
       newHeights[i] = this.heights[i];
-    }
-    for (let i = copyLen; i < newNumColumns; i++) {
-      newHeights[i] = 2.0 + (Math.random() - 0.5) * 0.6;
     }
     this.heights = newHeights;
     this.width = newWidth;
