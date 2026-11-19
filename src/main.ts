@@ -42,7 +42,7 @@ async function bootstrap(): Promise<void> {
   const decorationManager = new DecorationManager();
   const decorationPalette = new DecorationPalette(decorationManager);
   const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
-  const snowballBuilder = new SnowballBuilder(taskbar);
+  const snowballBuilder = new SnowballBuilder(snowEngine.getAccumulator(), taskbar);
 
   decorationPalette.onTriggerEvent = (event) => {
     eventManager.trigger(event);
@@ -141,6 +141,7 @@ async function bootstrap(): Promise<void> {
     const hoverDecor = decorationManager.hitTest(mx, my);
     const hoverBall = snowballBuilder.containsBall(mx, my);
     const hoverTrain = eventManager.isTrainNear(mx, my);
+    const hoverPalette = decorationPalette.containsPoint(mx, my);
 
     for (const s of snowmen) {
       s.setWaving(s === hoverSnowman);
@@ -154,7 +155,8 @@ async function bootstrap(): Promise<void> {
       hoverSnow ||
       hoverDecor ||
       hoverBall ||
-      hoverTrain
+      hoverTrain ||
+      hoverPalette
     );
 
     setInteractivity(interactive);
@@ -163,6 +165,10 @@ async function bootstrap(): Promise<void> {
   window.addEventListener("mousedown", (e) => {
     const mx = e.clientX;
     const my = e.clientY;
+
+    if (decorationPalette.containsPoint(mx, my)) {
+      return;
+    }
 
     if (e.button === 2) {
       if (eventManager.containsFighter(mx, my)) {
@@ -230,10 +236,11 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    if (snowEngine.isNearSnow(mx, my) || snowballBuilder.containsBall(mx, my)) {
-      snowballBuilder.startAt(mx, my);
-      setInteractivity(true);
-      return;
+    if (snowballBuilder.canStartAt(mx, my)) {
+      if (snowballBuilder.startAt(mx, my)) {
+        setInteractivity(true);
+        return;
+      }
     }
   });
 
