@@ -375,30 +375,62 @@ export class EventManager {
 
     ctx.fillStyle = "#fbc02d";
     ctx.beginPath();
-    ctx.roundRect(0, -32, 54, 24, [4, 8, 2, 2]);
+    ctx.roundRect(4, -30, 42, 20, [4, 6, 2, 2]);
     ctx.fill();
+
+    ctx.fillStyle = "#ffd54f";
+    ctx.fillRect(8, -28, 12, 6);
 
     ctx.fillStyle = "#4fc3f7";
-    ctx.fillRect(32, -28, 16, 12);
-
-    ctx.fillStyle = "#78909c";
     ctx.beginPath();
-    ctx.moveTo(52, -26);
-    ctx.lineTo(76, -4);
-    ctx.lineTo(76, 0);
-    ctx.lineTo(52, -4);
-    ctx.closePath();
+    ctx.roundRect(24, -27, 18, 13, [2, 4, 1, 1]);
+    ctx.fill();
+    ctx.strokeStyle = "#0288d1";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    const beaconPulse = 0.5 + 0.5 * Math.sin(plough.wheelRotation * 3);
+    ctx.fillStyle = `rgba(255, 152, 0, ${0.7 + beaconPulse * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(18, -32, 2.8, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
-    for (let i = 0; i < 4; i++) {
-      ctx.beginPath();
-      ctx.arc(74 + Math.random() * 8, -6 - Math.random() * 12, 2 + Math.random() * 2, 0, Math.PI * 2);
-      ctx.fill();
+    ctx.fillStyle = "#37474f";
+    ctx.beginPath();
+    ctx.roundRect(2, -10, 48, 10, 5);
+    ctx.fill();
+    ctx.strokeStyle = "#212121";
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+
+    for (let w = 0; w < 4; w++) {
+      const wx = 10 + w * 10;
+      this.drawWheel(ctx, wx, -5, plough.wheelRotation, 3.8);
     }
 
-    this.drawWheel(ctx, 14, -6, plough.wheelRotation);
-    this.drawWheel(ctx, 42, -6, plough.wheelRotation);
+    ctx.fillStyle = "#b0bec5";
+    ctx.beginPath();
+    ctx.moveTo(46, -20);
+    ctx.quadraticCurveTo(58, -12, 58, 0);
+    ctx.lineTo(52, 0);
+    ctx.quadraticCurveTo(52, -10, 42, -16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "#546e7a";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(58, -4, 5, 0, Math.PI * 2);
+    ctx.arc(54, -9, 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let i = 0; i < 5; i++) {
+      ctx.beginPath();
+      ctx.arc(56 + Math.random() * 8, -6 - Math.random() * 16, 1.8 + Math.random() * 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.restore();
   }
@@ -562,30 +594,30 @@ export class EventManager {
     ctx.restore();
   }
 
-  private drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
+  private drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number, radius = 7): void {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(rotation);
 
     ctx.beginPath();
-    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius, 0, Math.PI * 2);
     ctx.fillStyle = "#37474f";
     ctx.fill();
     ctx.strokeStyle = "#78909c";
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.2;
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.moveTo(-6, 0);
-    ctx.lineTo(6, 0);
-    ctx.moveTo(0, -6);
-    ctx.lineTo(0, 6);
+    ctx.moveTo(-radius * 0.85, 0);
+    ctx.lineTo(radius * 0.85, 0);
+    ctx.moveTo(0, -radius * 0.85);
+    ctx.lineTo(0, radius * 0.85);
     ctx.strokeStyle = "#90a4ae";
     ctx.lineWidth = 1;
     ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+    ctx.arc(0, 0, radius * 0.35, 0, Math.PI * 2);
     ctx.fillStyle = "#b0bec5";
     ctx.fill();
 
