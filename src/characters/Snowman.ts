@@ -12,6 +12,10 @@ export class Snowman {
   public attachedWindowId: number | null = null;
   public windowOffsetX = 0;
   public windowOffsetY = 0;
+  public isFalling = false;
+  public vy = 0;
+  public tiltAngle = 0;
+  public bounceScaleY = 1.0;
   public id: string = Math.random().toString(36).slice(2);
   public spawnProgress = 0;
   public isWaving = false;
@@ -35,11 +39,61 @@ export class Snowman {
     this.scale = 1.0;
   }
 
-  public update(taskbar: TaskbarBounds): void {
-    if (!this.hasCustomPosition && !this.isDragging && !this.isRidingTrain) {
+  public startFalling(): void {
+    if (this.isFalling || this.isDragging || this.isRidingTrain) return;
+    this.isFalling = true;
+    this.vy = 1.0;
+    this.tiltAngle = (Math.random() - 0.5) * 0.15;
+    this.attachedWindowId = null;
+  }
+
+  public update(taskbar: TaskbarBounds, windows: WindowBounds[] = []): void {
+    this.idleTimer += 0.05;
+
+    if (this.bounceScaleY < 1.0) {
+      this.bounceScaleY = Math.min(1.0, this.bounceScaleY + 0.05);
+    }
+
+    if (this.isFalling) {
+      this.vy += 0.42;
+      this.y += this.vy;
+      this.tiltAngle = Math.sin(this.idleTimer * 8) * 0.12;
+
+      for (const win of windows) {
+        if (
+          this.x >= win.x &&
+          this.x <= win.x + win.width &&
+          this.y >= win.y - 2 &&
+          this.y <= win.y + 16 &&
+          this.vy > 0
+        ) {
+          this.isFalling = false;
+          this.vy = 0;
+          this.tiltAngle = 0;
+          this.bounceScaleY = 0.82;
+          this.attachedWindowId = win.id || null;
+          this.windowOffsetX = this.x - win.x;
+          this.windowOffsetY = 0;
+          this.y = win.y;
+          return;
+        }
+      }
+
+      if (this.y >= taskbar.y) {
+        this.isFalling = false;
+        this.vy = 0;
+        this.tiltAngle = 0;
+        this.bounceScaleY = 0.82;
+        this.attachedWindowId = null;
+        this.y = taskbar.y;
+        return;
+      }
+      return;
+    }
+
+    if (!this.hasCustomPosition && !this.isDragging && !this.isRidingTrain && !this.attachedWindowId) {
       this.y = taskbar.y;
     }
-    this.idleTimer += 0.05;
 
     if (!this.isSpawned) {
       this.currentRollX += 3.5;
@@ -67,13 +121,22 @@ export class Snowman {
   }
 
   public updateWindows(windows: WindowBounds[]): void {
-    if (this.attachedWindowId !== null && !this.isDragging && !this.isRidingTrain) {
+    if (this.attachedWindowId !== null && !this.isDragging && !this.isRidingTrain && !this.isFalling) {
       const win = windows.find((w) => w.id === this.attachedWindowId);
-      if (win) {
-        this.x = win.x + this.windowOffsetX;
-        this.y = win.y + this.windowOffsetY;
-        this.hasCustomPosition = true;
+      if (!win) {
+        this.startFalling();
+        return;
       }
+
+      const relativeX = this.x - win.x;
+      if (relativeX < -15 || relativeX > win.width + 15) {
+        this.startFalling();
+        return;
+      }
+
+      this.x = win.x + this.windowOffsetX;
+      this.y = win.y + this.windowOffsetY;
+      this.hasCustomPosition = true;
     }
   }
 
@@ -92,7 +155,8 @@ export class Snowman {
   public draw(ctx: CanvasRenderingContext2D): void {
     ctx.save();
     ctx.translate(this.x, this.y);
-    ctx.scale(this.scale, this.scale);
+    ctx.rotate(this.tiltAngle);
+    ctx.scale(this.scale, this.scale * this.bounceScaleY);
 
     if (!this.isSpawned) {
       this.drawRollingSnowball(ctx);
