@@ -14,6 +14,8 @@ export interface RollingBall {
   attachedWindowId?: number | null;
   windowOffsetX?: number;
   windowOffsetY?: number;
+  isFalling?: boolean;
+  vy?: number;
 }
 
 export class SnowballBuilder {
@@ -217,14 +219,52 @@ export class SnowballBuilder {
     this.restingBalls.push(current);
   }
 
+  public update(taskbar: TaskbarBounds, windows: WindowBounds[] = []): void {
+    for (const ball of this.restingBalls) {
+      if (ball.isFalling) {
+        ball.vy = (ball.vy || 1.0) + 0.42;
+        ball.y += ball.vy;
+
+        for (const win of windows) {
+          if (
+            ball.x >= win.x &&
+            ball.x <= win.x + win.width &&
+            ball.y >= win.y - ball.radius &&
+            ball.y <= win.y + 12 &&
+            (ball.vy || 0) > 0
+          ) {
+            ball.isFalling = false;
+            ball.vy = 0;
+            ball.attachedWindowId = win.id || null;
+            ball.windowOffsetX = ball.x - win.x;
+            ball.windowOffsetY = -ball.radius + 2;
+            ball.y = win.y - ball.radius + 2;
+            break;
+          }
+        }
+
+        if (ball.isFalling && ball.y >= taskbar.y - ball.radius) {
+          ball.isFalling = false;
+          ball.vy = 0;
+          ball.attachedWindowId = null;
+          ball.y = taskbar.y - ball.radius;
+        }
+      }
+    }
+  }
+
   public updateWindows(windows: WindowBounds[]): void {
     for (const ball of this.restingBalls) {
-      if (ball.attachedWindowId) {
+      if (ball.attachedWindowId && !ball.isFalling) {
         const win = windows.find((w) => w.id === ball.attachedWindowId);
-        if (win) {
-          ball.x = win.x + (ball.windowOffsetX || 0);
-          ball.y = win.y + (ball.windowOffsetY || 0);
+        if (!win || ball.x < win.x - 15 || ball.x > win.x + win.width + 15) {
+          ball.isFalling = true;
+          ball.vy = 1.0;
+          ball.attachedWindowId = null;
+          continue;
         }
+        ball.x = win.x + (ball.windowOffsetX || 0);
+        ball.y = win.y + (ball.windowOffsetY || 0);
       }
     }
   }
