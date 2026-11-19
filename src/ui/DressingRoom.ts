@@ -39,6 +39,18 @@ export class DressingRoomModal {
     document.body.appendChild(this.container);
   }
 
+  public setTargetSnowman(snowman: Snowman): void {
+    this.snowman = snowman;
+    if (this.isOpen) {
+      this.render();
+    }
+  }
+
+  public openWith(snowman: Snowman): void {
+    this.snowman = snowman;
+    this.open();
+  }
+
   public toggle(): void {
     if (this.isOpen) {
       this.close();
