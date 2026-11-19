@@ -1,6 +1,7 @@
 import { Snowman } from "./Snowman";
+import type { SnowEngine } from "../snow/SnowEngine";
 import type { SnowAccumulator } from "../snow/Accumulator";
-import type { TaskbarBounds } from "../types";
+import type { TaskbarBounds, WindowBounds } from "../types";
 
 export interface RollingBall {
   id: string;
@@ -10,18 +11,23 @@ export interface RollingBall {
   targetRadius: number;
   rotation: number;
   tier: 1 | 2 | 3;
+  attachedWindowId?: number | null;
+  windowOffsetX?: number;
+  windowOffsetY?: number;
 }
 
 export class SnowballBuilder {
   public activeBall: RollingBall | null = null;
   public restingBalls: RollingBall[] = [];
   public isBuilding = false;
+  private snowEngine: SnowEngine;
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds;
   public onSnowmanCreated?: (snowman: Snowman) => void;
 
-  constructor(accumulator: SnowAccumulator, taskbar: TaskbarBounds) {
-    this.accumulator = accumulator;
+  constructor(snowEngine: SnowEngine, taskbar: TaskbarBounds) {
+    this.snowEngine = snowEngine;
+    this.accumulator = snowEngine.getAccumulator();
     this.taskbar = taskbar;
   }
 
@@ -32,7 +38,11 @@ export class SnowballBuilder {
   public canStartAt(x: number, y: number): boolean {
     if (this.containsBall(x, y)) return true;
     if (this.taskbar && y >= this.taskbar.y - 25 && y <= this.taskbar.y + 10) {
-      return this.accumulator.getSnowHeight(x) >= 2.0;
+      return this.accumulator.getSnowHeight(x) >= 1.5;
+    }
+    const winSnow = this.snowEngine.getWindowSnowAt(x, y);
+    if (winSnow && winSnow.depth >= 0.8) {
+      return true;
     }
     return false;
   }
@@ -46,22 +56,41 @@ export class SnowballBuilder {
       return true;
     }
 
-    if (this.accumulator.getSnowHeight(x) < 2.0) {
-      return false;
+    const winSnow = this.snowEngine.getWindowSnowAt(x, y);
+    if (winSnow && winSnow.depth >= 0.8) {
+      this.isBuilding = true;
+      this.activeBall = {
+        id: Math.random().toString(36).slice(2),
+        x,
+        y: winSnow.window.y - 8,
+        radius: 8,
+        targetRadius: 22,
+        rotation: 0,
+        tier: 1,
+        attachedWindowId: winSnow.window.id || null,
+        windowOffsetX: x - winSnow.window.x,
+        windowOffsetY: -6
+      };
+      this.snowEngine.consumeWindowSnow(winSnow.window, 0.45);
+      return true;
     }
 
-    this.isBuilding = true;
-    this.activeBall = {
-      id: Math.random().toString(36).slice(2),
-      x,
-      y,
-      radius: 8,
-      targetRadius: 22,
-      rotation: 0,
-      tier: 1
-    };
-    this.accumulator.clearRange(x - 12, x + 12);
-    return true;
+    if (this.accumulator.getSnowHeight(x) >= 1.5) {
+      this.isBuilding = true;
+      this.activeBall = {
+        id: Math.random().toString(36).slice(2),
+        x,
+        y,
+        radius: 8,
+        targetRadius: 22,
+        rotation: 0,
+        tier: 1
+      };
+      this.accumulator.clearRange(x - 12, x + 12);
+      return true;
+    }
+
+    return false;
   }
 
   public findRestingBallAt(px: number, py: number): RollingBall | null {
@@ -93,13 +122,22 @@ export class SnowballBuilder {
     this.activeBall.y = y;
 
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
-      const availableSnow = this.accumulator.getSnowHeight(x);
-      if (availableSnow >= 0.8) {
-        this.accumulator.clearRange(x - 14, x + 14);
+      const winSnow = this.snowEngine.getWindowSnowAt(x, y);
+      if (winSnow && winSnow.depth >= 0.5) {
+        this.snowEngine.consumeWindowSnow(winSnow.window, 0.04);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
           this.activeBall.radius + dist * 0.05
         );
+      } else {
+        const availableSnow = this.accumulator.getSnowHeight(x);
+        if (availableSnow >= 0.8) {
+          this.accumulator.clearRange(x - 14, x + 14);
+          this.activeBall.radius = Math.min(
+            this.activeBall.targetRadius,
+            this.activeBall.radius + dist * 0.05
+          );
+        }
       }
     }
     return true;
@@ -134,6 +172,11 @@ export class SnowballBuilder {
       snowman.setPosition(targetStackMid.x, targetStackMid.y + 20);
       snowman.isSpawned = true;
       snowman.isRemovable = true;
+      if (targetStackMid.attachedWindowId) {
+        snowman.attachedWindowId = targetStackMid.attachedWindowId;
+        snowman.windowOffsetX = targetStackMid.windowOffsetX || 0;
+        snowman.windowOffsetY = (targetStackMid.windowOffsetY || 0) + 20;
+      }
 
       this.restingBalls = this.restingBalls.filter(
         (b) => b.id !== targetStackMid!.id && Math.hypot(b.x - targetStackMid!.x, b.y - targetStackMid!.y) > 40
@@ -150,12 +193,40 @@ export class SnowballBuilder {
       current.y = targetStackBase.y - targetStackBase.radius - current.radius + 4;
       current.tier = 2;
       current.targetRadius = 16;
+      if (targetStackBase.attachedWindowId) {
+        current.attachedWindowId = targetStackBase.attachedWindowId;
+        current.windowOffsetX = targetStackBase.windowOffsetX;
+        current.windowOffsetY = (targetStackBase.windowOffsetY || 0) - targetStackBase.radius - current.radius + 4;
+      }
       this.restingBalls.push(current);
       return;
     }
 
     current.tier = 1;
+    const nearWin = this.snowEngine.getNearestWindowAt(current.x, current.y);
+    if (nearWin && Math.abs(current.y - nearWin.y) <= 30) {
+      current.y = nearWin.y - current.radius + 2;
+      current.attachedWindowId = nearWin.id || null;
+      current.windowOffsetX = current.x - nearWin.x;
+      current.windowOffsetY = -current.radius + 2;
+    } else if (this.taskbar && Math.abs(current.y - this.taskbar.y) <= 30) {
+      current.y = this.taskbar.y - current.radius;
+      current.attachedWindowId = null;
+    }
+
     this.restingBalls.push(current);
+  }
+
+  public updateWindows(windows: WindowBounds[]): void {
+    for (const ball of this.restingBalls) {
+      if (ball.attachedWindowId) {
+        const win = windows.find((w) => w.id === ball.attachedWindowId);
+        if (win) {
+          ball.x = win.x + (ball.windowOffsetX || 0);
+          ball.y = win.y + (ball.windowOffsetY || 0);
+        }
+      }
+    }
   }
 
   public reset(): void {
@@ -203,8 +274,6 @@ export class SnowballBuilder {
     ctx.beginPath();
     ctx.arc(0, 0, ball.radius, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(180, 210, 240, 0.6)";
-    ctx.shadowBlur = 6;
     ctx.fill();
 
     ctx.fillStyle = "rgba(200, 225, 255, 0.4)";
