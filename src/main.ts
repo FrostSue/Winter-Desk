@@ -369,6 +369,8 @@ async function bootstrap(): Promise<void> {
       } else if (Math.abs(draggedSnowman.y - taskbar.y) <= 35) {
         draggedSnowman.attachedWindowId = null;
         draggedSnowman.setPosition(draggedSnowman.x, taskbar.y);
+      } else {
+        draggedSnowman.startFalling();
       }
 
       draggedSnowman.isDragging = false;
