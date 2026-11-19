@@ -1,19 +1,30 @@
 import { FairyLights } from "./FairyLights";
-import { Ornament, type OrnamentType } from "./Ornament";
+import { Ornament } from "./Ornament";
+import type { OrnamentType, LightColorTheme } from "../types";
 
 export class DecorationManager {
   private lights: FairyLights[] = [];
   private ornaments: Ornament[] = [];
-  private draggedLight: { light: FairyLights; handle: "p1" | "p2" } | null = null;
+  private draggedLight: {
+    light: FairyLights;
+    handle: "p1" | "p2" | "body";
+    startMouseX: number;
+    startMouseY: number;
+    p1StartX: number;
+    p1StartY: number;
+    p2StartX: number;
+    p2StartY: number;
+  } | null = null;
   private draggedOrnament: { ornament: Ornament; offsetX: number; offsetY: number } | null = null;
-  private isHovering = false;
 
   constructor() {
     const screenW = window.innerWidth;
-    this.lights.push(new FairyLights(0, 2, screenW, 2));
-    this.ornaments.push(new Ornament(screenW * 0.22, 28, "red-bauble"));
-    this.ornaments.push(new Ornament(screenW * 0.48, 28, "wreath"));
-    this.ornaments.push(new Ornament(screenW * 0.78, 28, "gold-bauble"));
+    this.lights.push(new FairyLights(0, 4, screenW, 4, "rainbow"));
+    this.ornaments.push(new Ornament(screenW * 0.18, 28, "red-bauble"));
+    this.ornaments.push(new Ornament(screenW * 0.36, 28, "wreath"));
+    this.ornaments.push(new Ornament(screenW * 0.54, 28, "bells"));
+    this.ornaments.push(new Ornament(screenW * 0.72, 28, "tree"));
+    this.ornaments.push(new Ornament(screenW * 0.88, 28, "gold-bauble"));
   }
 
   public resize(newWidth: number): void {
@@ -22,8 +33,20 @@ export class DecorationManager {
     }
   }
 
-  public addLights(x1: number, y1: number, x2: number, y2: number): void {
-    this.lights.push(new FairyLights(x1, y1, x2, y2));
+  public setLightsTheme(theme: LightColorTheme): void {
+    for (const light of this.lights) {
+      light.setColorTheme(theme);
+    }
+  }
+
+  public setLightsHeight(newY: number): void {
+    for (const light of this.lights) {
+      light.setHeight(newY);
+    }
+  }
+
+  public addLights(x1: number, y1: number, x2: number, y2: number, theme: LightColorTheme = "rainbow"): void {
+    this.lights.push(new FairyLights(x1, y1, x2, y2, theme));
   }
 
   public addOrnament(x: number, y: number, type: OrnamentType): void {
@@ -62,6 +85,20 @@ export class DecorationManager {
     }
   }
 
+  public hitTest(px: number, py: number): boolean {
+    for (const light of this.lights) {
+      if (light.hitTest(px, py) !== null) return true;
+    }
+    for (const ornament of this.ornaments) {
+      if (ornament.containsPoint(px, py)) return true;
+    }
+    return false;
+  }
+
+  public isDraggingAny(): boolean {
+    return this.draggedLight !== null || this.draggedOrnament !== null;
+  }
+
   public handleMouseDown(px: number, py: number, button = 0): boolean {
     if (button === 2) {
       return this.removeOrnamentAt(px, py);
@@ -70,9 +107,19 @@ export class DecorationManager {
     for (const light of this.lights) {
       const hit = light.hitTest(px, py);
       if (hit) {
-        this.draggedLight = { light, handle: hit };
+        this.draggedLight = {
+          light,
+          handle: hit,
+          startMouseX: px,
+          startMouseY: py,
+          p1StartX: light.p1.x,
+          p1StartY: light.p1.y,
+          p2StartX: light.p2.x,
+          p2StartY: light.p2.y
+        };
         if (hit === "p1") light.isDraggingP1 = true;
         if (hit === "p2") light.isDraggingP2 = true;
+        if (hit === "body") light.isDraggingBody = true;
         return true;
       }
     }
@@ -94,12 +141,20 @@ export class DecorationManager {
 
   public handleMouseMove(px: number, py: number): boolean {
     if (this.draggedLight) {
+      const dx = px - this.draggedLight.startMouseX;
+      const dy = py - this.draggedLight.startMouseY;
+
       if (this.draggedLight.handle === "p1") {
         this.draggedLight.light.p1.x = px;
         this.draggedLight.light.p1.y = py;
-      } else {
+      } else if (this.draggedLight.handle === "p2") {
         this.draggedLight.light.p2.x = px;
         this.draggedLight.light.p2.y = py;
+      } else if (this.draggedLight.handle === "body") {
+        this.draggedLight.light.p1.x = this.draggedLight.p1StartX + dx;
+        this.draggedLight.light.p1.y = this.draggedLight.p1StartY + dy;
+        this.draggedLight.light.p2.x = this.draggedLight.p2StartX + dx;
+        this.draggedLight.light.p2.y = this.draggedLight.p2StartY + dy;
       }
       return true;
     }
@@ -127,11 +182,6 @@ export class DecorationManager {
       }
     }
 
-    if (hovering !== this.isHovering) {
-      this.isHovering = hovering;
-      window.winterDesk?.setIgnoreMouseEvents(!hovering);
-    }
-
     return hovering;
   }
 
@@ -139,6 +189,7 @@ export class DecorationManager {
     if (this.draggedLight) {
       this.draggedLight.light.isDraggingP1 = false;
       this.draggedLight.light.isDraggingP2 = false;
+      this.draggedLight.light.isDraggingBody = false;
       this.draggedLight = null;
     }
 
@@ -146,9 +197,5 @@ export class DecorationManager {
       this.draggedOrnament.ornament.isDragging = false;
       this.draggedOrnament = null;
     }
-  }
-
-  public isInteracting(): boolean {
-    return this.draggedLight !== null || this.draggedOrnament !== null || this.isHovering;
   }
 }
