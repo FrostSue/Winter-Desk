@@ -29,11 +29,14 @@ export class SnowEngine {
     minSpeed: 1,
     maxSpeed: 3,
     accumulateOnTaskbar: true,
-    accumulateOnWindows: true
+    accumulateOnWindows: true,
+    ecoMode: false
   };
   private targetWind = 0.5;
   private isRunning = false;
   private animFrameId: number | null = null;
+  private lastFrameTimestamp = 0;
+  private targetFps = 60;
   private width = 0;
   private height = 0;
   public onRenderEntities?: (ctx: CanvasRenderingContext2D) => void;
@@ -149,6 +152,7 @@ export class SnowEngine {
   public setConfig(config: SnowConfig): void {
     this.config = { ...config };
     this.targetWind = config.wind;
+    this.targetFps = config.ecoMode ? 30 : 60;
     this.adjustFlakeCount();
   }
 
@@ -297,8 +301,9 @@ export class SnowEngine {
   public start(): void {
     if (this.isRunning) return;
     this.isRunning = true;
+    this.lastFrameTimestamp = performance.now();
     this.adjustFlakeCount();
-    this.loop();
+    this.loop(performance.now());
   }
 
   public stop(): void {
@@ -309,11 +314,17 @@ export class SnowEngine {
     }
   }
 
-  private loop = (): void => {
+  private loop = (timestamp = 0): void => {
     if (!this.isRunning) return;
+    this.animFrameId = requestAnimationFrame(this.loop);
+    const interval = 1000 / this.targetFps;
+    const elapsed = timestamp - this.lastFrameTimestamp;
+    if (elapsed < interval - 1) {
+      return;
+    }
+    this.lastFrameTimestamp = timestamp - (elapsed % interval);
     this.update();
     this.render();
-    this.animFrameId = requestAnimationFrame(this.loop);
   };
 
   private update(): void {
