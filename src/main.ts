@@ -48,7 +48,23 @@ async function bootstrap(): Promise<void> {
     eventManager.trigger(event);
   };
 
+  function bindSnowman(s: Snowman): void {
+    s.onShatter = (_x, _y, isRemovable) => {
+      if (isRemovable) {
+        setTimeout(() => {
+          const idx = snowmen.indexOf(s);
+          if (idx !== -1) {
+            snowmen.splice(idx, 1);
+          }
+        }, 3200);
+      }
+    };
+  }
+
+  bindSnowman(mainSnowman);
+
   snowballBuilder.onSnowmanCreated = (newSnowman) => {
+    bindSnowman(newSnowman);
     snowmen.push(newSnowman);
   };
 
