@@ -22,6 +22,7 @@ export interface SnowConfig {
   maxSpeed: number;
   accumulateOnTaskbar: boolean;
   accumulateOnWindows: boolean;
+  ecoMode?: boolean;
 }
 
 export interface SnowmanConfig {
