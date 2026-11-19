@@ -16,16 +16,16 @@ WinterDesk is an open-source, background-running Windows 10 and 11 desktop compa
 | :--- | :--- | :--- | :--- |
 | **Snowfall Particle Engine** | `src/snow/Particle.ts` | Complete | Drifting snowflakes with sway, gravity, and variable wind velocity. |
 | **Taskbar Snow Accumulation** | `src/snow/Accumulator.ts` | Complete | Heightmap column buffer creating natural snowbanks along the taskbar that melt gradually. |
-| **Open Window Snow Accumulation** | `src/snow/SnowEngine.ts`, `scripts/get_windows.ps1` | Complete | Balanced snow accumulation on top-level window titlebars with realistic cap (8px) and slow natural melting. |
+| **Open Window Snow Accumulation** | `src/snow/SnowEngine.ts`, `scripts/WindowTracker.cs` | Complete | Balanced snow accumulation on top-level window titlebars with real-time 40 FPS native tracking, window ID persistence, and Z-order occlusion clipping preventing snow bleed-through on foreground windows. |
 | **Window Snow Shoveling Cascade** | `src/snow/SnowEngine.ts` | Complete | Clicking on window snowdrifts shovels tumbling snow clumps that tumble down to lower windows or the taskbar. |
-| **Unified 60 FPS Render Loop** | `src/snow/SnowEngine.ts` | Complete | Unified `requestAnimationFrame` loop preventing canvas clearing conflicts. |
+| **Unified 60 FPS Render Loop** | `src/snow/SnowEngine.ts` | Complete | Unified `requestAnimationFrame` loop with optimized particle fills and zero `shadowBlur` overhead for low CPU/GPU usage. |
 | **Interactive Snowmen** | `src/characters/Snowman.ts` | Complete | Main permanent snowman plus user-built snowmen; freely draggable anywhere, customizable, removable via right-click. |
 | **Companion Winter Buddy** | `src/characters/CompanionBuddy.ts` | Complete | Animated waddling penguin companion with fluttering scarf; wanders desktop, waves, boards trains, and shovels snow. |
-| **Snowball Builder** | `src/characters/SnowballBuilder.ts` | Complete | Free-form snowball rolling and placement anywhere on screen; stacking 3 balls creates a new custom snowman. |
+| **Snowball Builder** | `src/characters/SnowballBuilder.ts` | Complete | Free-form snowball rolling requiring accumulated ground snow; rolling gathers and clears snow from the taskbar; stacking 3 balls creates a new custom snowman. |
 | **Snowman Wardrobe Modal** | `src/ui/DressingRoom.ts` | Complete | Windows 11 Fluent glassmorphism panel targeting any selected snowman for hats, faces, clothing, and accessories. |
-| **Deck Your Desktop Palette** | `src/ui/DecorationPalette.ts` | Complete | Modal drawer with 16 festive ornaments, fairy light theme switchers (Rainbow, Warm, Ice, Candy), and vehicle spawners. |
+| **Deck Your Desktop Palette** | `src/ui/DecorationPalette.ts` | Complete | Modal drawer with 16 festive ornaments, fairy light theme switchers, sag depth presets (Straight, Gentle, Drape), non-blocking desktop pass-through, and vehicle spawners. |
 | **Floating Quick-Deck Trigger** | `src/main.ts` | Complete | Subtle on-screen pill button for instant access to the decoration palette without opening system tray. |
-| **Adjustable Fairy Lights** | `src/decorations/FairyLights.ts` | Complete | Draggable wire garland with adjustable height, custom sags, multiple color themes, and glowing bulbs. |
+| **Adjustable Fairy Lights** | `src/decorations/FairyLights.ts` | Complete | Three-point Bezier garland with draggable left/right handles, diamond sag control handle, height positioning, color themes, and glowing bulbs. |
 | **Festive Ornaments** | `src/decorations/Ornament.ts`, `DecorationManager.ts` | Complete | 16 festive items with pendulum physics, drag & drop placement anywhere, and right-click removal. |
 | **Snowplough Vehicle** | `src/events/EventManager.ts` | Complete | Drives across taskbar clearing accumulated snowbanks with snow spray. |
 | **Gift Express Train with Boarding**| `src/events/EventManager.ts` | Complete | Locomotive with passenger carriage; snowman and companion can board the train and ride across the desktop. |
@@ -111,6 +111,9 @@ Generates `release/WinterDesk-win32-x64/WinterDesk.exe`.
 
 1. **Atomic Commits**: Adhere strictly to the single-file atomic Git commit policy. Every file creation or modification must be committed individually with an English descriptive message.
 2. **Zero Inline Comments**: Do not place inline comments inside source code files.
-3. **Debounced Mouse Pass-Through**: Do NOT call `setIgnoreMouseEvents` from multiple sub-managers or on every mouse move. Centralize interactivity state in `main.ts` and cache state in `electron/main.ts` to prevent Windows User32 `WS_EX_TRANSPARENT` IPC flooding and UI freezes.
-4. **Screen Share Compatibility**: Keep `type: "toolbar"` and `setContentProtection(false)` enabled in `electron/main.ts` so DWM does not occlude the desktop or trigger black screen capture issues on Discord or OBS.
-5. **Taskbar Boundaries**: Always use `window.winterDesk.getTaskbarBounds()` to dynamically query the Windows taskbar dimensions across single or multi-monitor configurations.
+3. **Window Tracking & Z-Order Occlusion**: Always use the native `WindowTracker.exe` (C# Win32 EnumDesktopWindows) streaming JSON updates via stdout. In `SnowEngine.ts`, window snow is clipped against all higher Z-order windows to prevent background snow from rendering over foreground windows. Snow depth is indexed by window handle ID so positions track fluidly across window drag movements.
+4. **Canvas Performance & Low CPU/GPU Overhead**: Never use `ctx.shadowBlur` in tight particle loops (such as snowflakes). Use crisp alpha blending and pre-computed gradients instead.
+5. **Palette Mouse Pass-Through**: Ensure transparent full-screen Electron overlays release mouse events (`setIgnoreMouseEvents(true, true)`) whenever the cursor leaves modal bounding boxes (`containsPoint`), keeping Windows apps and desktop icons clickable.
+6. **Debounced Mouse Pass-Through**: Do NOT call `setIgnoreMouseEvents` from multiple sub-managers or on every mouse move. Centralize interactivity state in `main.ts` and cache state in `electron/main.ts` to prevent Windows User32 `WS_EX_TRANSPARENT` IPC flooding and UI freezes.
+7. **Screen Share Compatibility**: Keep `type: "toolbar"` and `setContentProtection(false)` enabled in `electron/main.ts` so DWM does not occlude the desktop or trigger black screen capture issues on Discord or OBS.
+8. **Taskbar Boundaries**: Always use `window.winterDesk.getTaskbarBounds()` to dynamically query the Windows taskbar dimensions across single or multi-monitor configurations.
