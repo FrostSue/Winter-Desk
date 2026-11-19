@@ -26,9 +26,9 @@ export class FairyLights {
   };
 
   constructor(x1: number, y1: number, x2: number, y2: number, theme: LightColorTheme = "rainbow") {
-    this.p1 = { x: x1, y: y1, radius: 6 };
-    this.p2 = { x: x2, y: y2, radius: 6 };
-    this.pMid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 + 10, radius: 7 };
+    this.p1 = { x: x1, y: y1, radius: 7 };
+    this.p2 = { x: x2, y: y2, radius: 7 };
+    this.pMid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 + 10, radius: 9 };
     this.theme = theme;
   }
 
@@ -60,15 +60,15 @@ export class FairyLights {
   }
 
   public hitTest(px: number, py: number): "p1" | "p2" | "pMid" | "body" | null {
-    if (Math.hypot(px - this.pMid.x, py - this.pMid.y) <= this.pMid.radius + 12) {
+    if (Math.hypot(px - this.pMid.x, py - this.pMid.y) <= this.pMid.radius + 18) {
       return "pMid";
     }
 
-    if (Math.hypot(px - this.p1.x, py - this.p1.y) <= this.p1.radius + 12) {
+    if (Math.hypot(px - this.p1.x, py - this.p1.y) <= this.p1.radius + 14) {
       return "p1";
     }
 
-    if (Math.hypot(px - this.p2.x, py - this.p2.y) <= this.p2.radius + 12) {
+    if (Math.hypot(px - this.p2.x, py - this.p2.y) <= this.p2.radius + 14) {
       return "p2";
     }
 
