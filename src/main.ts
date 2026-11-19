@@ -412,8 +412,9 @@ async function bootstrap(): Promise<void> {
 
   snowEngine.onRenderEntities = (ctx: CanvasRenderingContext2D): void => {
     for (const s of snowmen) {
-      s.update(taskbar);
+      s.update(taskbar, openWindows);
     }
+    snowballBuilder.update(taskbar, openWindows);
     companion.update(taskbar, openWindows);
     eventManager.update();
     decorationManager.update();
