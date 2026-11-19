@@ -29,14 +29,11 @@ export class SnowEngine {
     minSpeed: 1,
     maxSpeed: 3,
     accumulateOnTaskbar: true,
-    accumulateOnWindows: true,
-    ecoMode: false
+    accumulateOnWindows: true
   };
   private targetWind = 0.5;
   private isRunning = false;
   private animFrameId: number | null = null;
-  private lastFrameTimestamp = 0;
-  private targetFps = 60;
   private width = 0;
   private height = 0;
   public onRenderEntities?: (ctx: CanvasRenderingContext2D) => void;
@@ -62,34 +59,45 @@ export class SnowEngine {
   }
 
   public triggerWindowAvalanche(win: WindowBounds, depth: number): void {
-    const step = 18;
-    const count = Math.max(8, Math.floor(win.width / step));
+    const step = 9;
+    const count = Math.max(12, Math.floor(win.width / step));
     for (let i = 0; i < count; i++) {
       const clumpX = win.x + i * step + (Math.random() * 8 - 4);
       const clumpY = win.y + (Math.random() * 6 - 3);
       this.tumblingClumps.push({
         x: clumpX,
         y: clumpY,
-        vx: (Math.random() - 0.5) * 1.8 + this.config.wind * 0.4,
-        vy: 2.4 + Math.random() * 2.6,
-        radius: 2.8 + Math.random() * Math.min(3.8, depth * 0.6),
+        vx: (Math.random() - 0.5) * 2.2 + this.config.wind * 0.35,
+        vy: 2.0 + Math.random() * 3.0,
+        radius: 2.4 + Math.random() * Math.min(4.2, depth * 0.65),
         alpha: 0.95,
         sourceWindowKey: this.getWindowKey(win)
       });
+      if (Math.random() > 0.4) {
+        this.tumblingClumps.push({
+          x: clumpX + (Math.random() * 6 - 3),
+          y: clumpY + (Math.random() * 4 - 2),
+          vx: (Math.random() - 0.5) * 1.6,
+          vy: 2.4 + Math.random() * 2.2,
+          radius: 1.4 + Math.random() * 1.5,
+          alpha: 0.85,
+          sourceWindowKey: this.getWindowKey(win)
+        });
+      }
     }
   }
 
   public triggerRegionAvalanche(startX: number, endX: number, y: number, sourceKey: string, depth: number): void {
-    const step = 18;
+    const step = 9;
     const len = endX - startX;
-    const count = Math.max(3, Math.floor(len / step));
+    const count = Math.max(4, Math.floor(len / step));
     for (let i = 0; i < count; i++) {
       this.tumblingClumps.push({
         x: startX + i * step + (Math.random() * 6 - 3),
         y: y + (Math.random() * 4 - 2),
-        vx: (Math.random() - 0.5) * 1.5,
-        vy: 2.4 + Math.random() * 2.4,
-        radius: 2.6 + Math.random() * Math.min(3.5, depth * 0.5),
+        vx: (Math.random() - 0.5) * 1.8,
+        vy: 2.2 + Math.random() * 2.6,
+        radius: 2.4 + Math.random() * Math.min(3.8, depth * 0.55),
         alpha: 0.95,
         sourceWindowKey: sourceKey
       });
@@ -111,20 +119,20 @@ export class SnowEngine {
         }
 
         const lostRight = oldWin.x + oldWin.width - (newWin.x + newWin.width);
-        if (lostRight > 24) {
+        if (lostRight > 14) {
           const startX = newWin.x + newWin.width;
           const endX = oldWin.x + oldWin.width;
           this.triggerRegionAvalanche(startX, endX, oldWin.y, oldKey, depth);
         }
 
         const lostLeft = newWin.x - oldWin.x;
-        if (lostLeft > 24) {
+        if (lostLeft > 14) {
           const startX = oldWin.x;
           const endX = newWin.x;
           this.triggerRegionAvalanche(startX, endX, oldWin.y, oldKey, depth);
         }
 
-        if (newWin.y > oldWin.y + 35) {
+        if (newWin.y > oldWin.y + 18) {
           this.triggerWindowAvalanche(oldWin, depth);
         }
       }
@@ -152,7 +160,6 @@ export class SnowEngine {
   public setConfig(config: SnowConfig): void {
     this.config = { ...config };
     this.targetWind = config.wind;
-    this.targetFps = config.ecoMode ? 30 : 60;
     this.adjustFlakeCount();
   }
 
@@ -185,9 +192,9 @@ export class SnowEngine {
       if (px >= win.x && px <= win.x + win.width) {
         const localX = px - win.x;
         const depth = acc.getHeight(localX);
-        if (depth < 0.6) continue;
+        if (depth < 2.5) continue;
 
-        if (py >= win.y - depth - 8 && py <= win.y - 1) {
+        if (py >= win.y - depth - 2 && py <= win.y - 4) {
           let isOccluded = false;
           for (let v = 0; v < w; v++) {
             const topWin = this.openWindows[v];
@@ -231,8 +238,8 @@ export class SnowEngine {
   }
 
   public isNearSnow(px: number, py: number): boolean {
-    if (this.taskbar && py >= this.taskbar.y - 25 && py <= this.taskbar.y + 10) {
-      return this.accumulator.getSnowHeight(px) >= 1.5;
+    if (this.taskbar && py >= this.taskbar.y - 25 && py <= this.taskbar.y - 2) {
+      return this.accumulator.getSnowHeight(px) >= 2.5;
     }
     return this.getWindowSnowAt(px, py) !== null;
   }
@@ -301,9 +308,8 @@ export class SnowEngine {
   public start(): void {
     if (this.isRunning) return;
     this.isRunning = true;
-    this.lastFrameTimestamp = performance.now();
     this.adjustFlakeCount();
-    this.loop(performance.now());
+    this.loop();
   }
 
   public stop(): void {
@@ -314,17 +320,11 @@ export class SnowEngine {
     }
   }
 
-  private loop = (timestamp = 0): void => {
+  private loop = (): void => {
     if (!this.isRunning) return;
-    this.animFrameId = requestAnimationFrame(this.loop);
-    const interval = 1000 / this.targetFps;
-    const elapsed = timestamp - this.lastFrameTimestamp;
-    if (elapsed < interval - 1) {
-      return;
-    }
-    this.lastFrameTimestamp = timestamp - (elapsed % interval);
     this.update();
     this.render();
+    this.animFrameId = requestAnimationFrame(this.loop);
   };
 
   private update(): void {
@@ -373,7 +373,7 @@ export class SnowEngine {
             const key = this.getWindowKey(win);
             const acc = this.windowAccumulators.get(key);
             if (acc) {
-              acc.deposit(flake.x - win.x, flake.radius * 0.14);
+              acc.deposit(flake.x - win.x, flake.radius * 0.045);
             }
             flake.reset(this.width);
             break;
@@ -491,7 +491,7 @@ export class SnowEngine {
 
       for (let v = 0; v < w; v++) {
         const topWin = this.openWindows[v];
-        if (topWin.y <= win.y && topWin.y + topWin.height >= win.y) {
+        if (topWin.y <= win.y + 2 && topWin.y + topWin.height >= win.y - 4) {
           const occStart = topWin.x;
           const occEnd = topWin.x + topWin.width;
           const nextSegments: { start: number; end: number }[] = [];
