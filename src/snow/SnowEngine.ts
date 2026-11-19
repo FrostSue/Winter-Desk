@@ -9,6 +9,7 @@ interface TumblingClump {
   vy: number;
   radius: number;
   alpha: number;
+  sourceWindowKey?: string;
 }
 
 export class SnowEngine {
@@ -83,40 +84,111 @@ export class SnowEngine {
     return this.accumulator;
   }
 
-  public isNearSnow(px: number, py: number): boolean {
-    if (this.taskbar && py >= this.taskbar.y - 25 && py <= this.taskbar.y + 10) {
-      return this.accumulator.getSnowHeight(px) >= 2.0;
-    }
-    return false;
-  }
-
-  public shovelWindowSnowAt(px: number, py: number): boolean {
+  public getNearestWindowAt(px: number, py: number): WindowBounds | null {
     for (let i = 0; i < this.openWindows.length; i++) {
       const win = this.openWindows[i];
+      if (
+        px >= win.x &&
+        px <= win.x + win.width &&
+        py >= win.y - 30 &&
+        py <= win.y + 35
+      ) {
+        return win;
+      }
+    }
+    return null;
+  }
+
+  public getWindowSnowAt(px: number, py: number): { window: WindowBounds; depth: number } | null {
+    for (let w = 0; w < this.openWindows.length; w++) {
+      const win = this.openWindows[w];
       if (
         px >= win.x &&
         px <= win.x + win.width &&
         py >= win.y - 20 &&
         py <= win.y + 16
       ) {
-        const key = this.getWindowKey(win);
-        const currentDepth = this.windowSnowDepths.get(key) || 0;
-        this.windowSnowDepths.set(key, Math.max(0, currentDepth - 2.5));
-
-        for (let k = 0; k < 10; k++) {
-          this.tumblingClumps.push({
-            x: px + (Math.random() * 24 - 12),
-            y: win.y - 2,
-            vx: (Math.random() - 0.5) * 3 + this.config.wind * 1.5,
-            vy: -1.5 - Math.random() * 2.5,
-            radius: 3 + Math.random() * 3.5,
-            alpha: 1.0
-          });
+        let isOccluded = false;
+        for (let v = 0; v < w; v++) {
+          const topWin = this.openWindows[v];
+          if (
+            px >= topWin.x &&
+            px <= topWin.x + topWin.width &&
+            py >= topWin.y &&
+            py <= topWin.y + topWin.height
+          ) {
+            isOccluded = true;
+            break;
+          }
         }
-        return true;
+        if (isOccluded) continue;
+
+        const key = this.getWindowKey(win);
+        const depth = this.windowSnowDepths.get(key) || 0;
+        if (depth >= 0.8) {
+          return { window: win, depth };
+        }
       }
     }
-    return false;
+    return null;
+  }
+
+  public consumeWindowSnow(win: WindowBounds, amount = 0.08): number {
+    const key = this.getWindowKey(win);
+    const depth = this.windowSnowDepths.get(key) || 0;
+    const newDepth = Math.max(0, depth - amount);
+    this.windowSnowDepths.set(key, newDepth);
+    return newDepth;
+  }
+
+  public addWindowSnow(win: WindowBounds, amount = 0.4): number {
+    const key = this.getWindowKey(win);
+    const depth = this.windowSnowDepths.get(key) || 0;
+    const newDepth = Math.min(8.0, depth + amount);
+    this.windowSnowDepths.set(key, newDepth);
+    return newDepth;
+  }
+
+  public isNearSnow(px: number, py: number): boolean {
+    if (this.taskbar && py >= this.taskbar.y - 25 && py <= this.taskbar.y + 10) {
+      return this.accumulator.getSnowHeight(px) >= 1.5;
+    }
+    return this.getWindowSnowAt(px, py) !== null;
+  }
+
+  public flingWindowSnow(
+    win: WindowBounds,
+    startX: number,
+    startY: number,
+    baseVx?: number,
+    baseVy?: number,
+    count = 35
+  ): void {
+    const key = this.getWindowKey(win);
+    const currentDepth = this.windowSnowDepths.get(key) || 0;
+    this.windowSnowDepths.set(key, Math.max(0, currentDepth - 1.8));
+
+    const vxCenter = baseVx !== undefined ? baseVx : 0;
+    const vyCenter = baseVy !== undefined ? baseVy : 4.5;
+
+    for (let k = 0; k < count; k++) {
+      this.tumblingClumps.push({
+        x: startX + (Math.random() * 36 - 18),
+        y: startY + (Math.random() * 6 - 3),
+        vx: vxCenter + (Math.random() - 0.5) * 3.5 + this.config.wind * 0.8,
+        vy: vyCenter + (Math.random() - 0.5) * 2.8,
+        radius: 2.5 + Math.random() * 3.8,
+        alpha: 0.95,
+        sourceWindowKey: key
+      });
+    }
+  }
+
+  public shovelWindowSnowAt(px: number, py: number): boolean {
+    const hit = this.getWindowSnowAt(px, py);
+    if (!hit) return false;
+    this.flingWindowSnow(hit.window, px, py);
+    return true;
   }
 
   private handleResize(): void {
@@ -217,21 +289,41 @@ export class SnowEngine {
       const clump = this.tumblingClumps[k];
       clump.x += clump.vx;
       clump.y += clump.vy;
-      clump.vy += 0.25;
+      clump.vy += 0.28;
+      clump.vx *= 0.98;
 
       let hitWindow = false;
       for (let w = 0; w < this.openWindows.length; w++) {
         const win = this.openWindows[w];
+        const key = this.getWindowKey(win);
+        if (clump.sourceWindowKey && clump.sourceWindowKey === key) {
+          continue;
+        }
+
         if (
           clump.x >= win.x &&
           clump.x <= win.x + win.width &&
-          clump.y >= win.y - 2 &&
-          clump.y <= win.y + 8 &&
+          clump.y >= win.y - 4 &&
+          clump.y <= win.y + 12 &&
           clump.vy > 0
         ) {
-          const key = this.getWindowKey(win);
+          let occluded = false;
+          for (let v = 0; v < w; v++) {
+            const topWin = this.openWindows[v];
+            if (
+              clump.x >= topWin.x &&
+              clump.x <= topWin.x + topWin.width &&
+              clump.y >= topWin.y &&
+              clump.y <= topWin.y + topWin.height
+            ) {
+              occluded = true;
+              break;
+            }
+          }
+          if (occluded) continue;
+
           const currentDepth = this.windowSnowDepths.get(key) || 0;
-          this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.6));
+          this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.4));
           this.tumblingClumps.splice(k, 1);
           hitWindow = true;
           break;
@@ -239,7 +331,7 @@ export class SnowEngine {
       }
 
       if (!hitWindow && clump.y >= taskbarTop) {
-        this.accumulator.deposit(clump.x, 0.8);
+        this.accumulator.deposit(clump.x, 0.5);
         this.tumblingClumps.splice(k, 1);
       }
     }
