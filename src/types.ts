@@ -7,6 +7,7 @@ export interface TaskbarBounds {
 }
 
 export interface WindowBounds {
+  id?: number;
   x: number;
   y: number;
   width: number;
