@@ -60,7 +60,7 @@ export class SnowballBuilder {
       rotation: 0,
       tier: 1
     };
-    this.accumulator.clearRange(x - 12, x + 12, 1.2);
+    this.accumulator.clearRange(x - 12, x + 12);
     return true;
   }
 
@@ -95,7 +95,7 @@ export class SnowballBuilder {
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
       const availableSnow = this.accumulator.getSnowHeight(x);
       if (availableSnow >= 0.8) {
-        this.accumulator.clearRange(x - 14, x + 14, 0.25);
+        this.accumulator.clearRange(x - 14, x + 14);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
           this.activeBall.radius + dist * 0.05
