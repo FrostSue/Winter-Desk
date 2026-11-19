@@ -39,11 +39,11 @@ export class SnowballBuilder {
 
   public canStartAt(x: number, y: number): boolean {
     if (this.containsBall(x, y)) return true;
-    if (this.taskbar && y >= this.taskbar.y - 25 && y <= this.taskbar.y + 10) {
-      return this.accumulator.getSnowHeight(x) >= 1.5;
+    if (this.taskbar && y >= this.taskbar.y - 25 && y <= this.taskbar.y - 2) {
+      return this.accumulator.getSnowHeight(x) >= 2.5;
     }
     const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-    if (winSnow && winSnow.depth >= 0.6) {
+    if (winSnow && winSnow.depth >= 2.5) {
       return true;
     }
     return false;
@@ -59,7 +59,7 @@ export class SnowballBuilder {
     }
 
     const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-    if (winSnow && winSnow.depth >= 0.6) {
+    if (winSnow && winSnow.depth >= 2.5) {
       this.isBuilding = true;
       this.activeBall = {
         id: Math.random().toString(36).slice(2),
@@ -73,11 +73,11 @@ export class SnowballBuilder {
         windowOffsetX: x - winSnow.window.x,
         windowOffsetY: -6
       };
-      this.snowEngine.consumeWindowSnow(winSnow.window, x, 0.6);
+      this.snowEngine.consumeWindowSnow(winSnow.window, x, 0.8);
       return true;
     }
 
-    if (this.accumulator.getSnowHeight(x) >= 1.5) {
+    if (this.accumulator.getSnowHeight(x) >= 2.5) {
       this.isBuilding = true;
       this.activeBall = {
         id: Math.random().toString(36).slice(2),
