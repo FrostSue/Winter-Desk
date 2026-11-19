@@ -1,5 +1,6 @@
 import { Snowflake } from "./Particle";
 import { SnowAccumulator } from "./Accumulator";
+import { WindowAccumulator } from "./WindowAccumulator";
 import type { SnowConfig, TaskbarBounds, WindowBounds } from "../types";
 
 interface TumblingClump {
@@ -19,7 +20,7 @@ export class SnowEngine {
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds | null = null;
   private openWindows: WindowBounds[] = [];
-  private windowSnowDepths: Map<string, number> = new Map();
+  private windowAccumulators: Map<string, WindowAccumulator> = new Map();
   private tumblingClumps: TumblingClump[] = [];
   private config: SnowConfig = {
     intensity: "medium",
@@ -96,7 +97,8 @@ export class SnowEngine {
     if (this.openWindows.length > 0) {
       for (const oldWin of this.openWindows) {
         const oldKey = this.getWindowKey(oldWin);
-        const depth = this.windowSnowDepths.get(oldKey) || 0;
+        const acc = this.windowAccumulators.get(oldKey);
+        const depth = acc ? acc.getAverageHeight() : 0;
         if (depth < 0.6) continue;
 
         const newWin = windows.find((w) => oldWin.id !== undefined && w.id === oldWin.id);
@@ -130,13 +132,16 @@ export class SnowEngine {
     for (const win of windows) {
       const key = this.getWindowKey(win);
       activeKeys.add(key);
-      if (!this.windowSnowDepths.has(key)) {
-        this.windowSnowDepths.set(key, 2.5);
+      const existing = this.windowAccumulators.get(key);
+      if (!existing) {
+        this.windowAccumulators.set(key, new WindowAccumulator(win.width));
+      } else if (existing.width !== win.width) {
+        existing.resize(win.width);
       }
     }
-    for (const key of this.windowSnowDepths.keys()) {
+    for (const key of this.windowAccumulators.keys()) {
       if (!activeKeys.has(key)) {
-        this.windowSnowDepths.delete(key);
+        this.windowAccumulators.delete(key);
       }
     }
   }
@@ -170,50 +175,55 @@ export class SnowEngine {
     for (let w = 0; w < this.openWindows.length; w++) {
       const win = this.openWindows[w];
       const key = this.getWindowKey(win);
-      const depth = this.windowSnowDepths.get(key) || 0;
-      if (depth < 0.6) continue;
+      const acc = this.windowAccumulators.get(key);
+      if (!acc) continue;
 
-      if (
-        px >= win.x &&
-        px <= win.x + win.width &&
-        py >= win.y - depth - 8 &&
-        py <= win.y - 1
-      ) {
-        let isOccluded = false;
-        for (let v = 0; v < w; v++) {
-          const topWin = this.openWindows[v];
-          if (
-            px >= topWin.x &&
-            px <= topWin.x + topWin.width &&
-            py >= topWin.y &&
-            py <= topWin.y + topWin.height
-          ) {
-            isOccluded = true;
-            break;
+      if (px >= win.x && px <= win.x + win.width) {
+        const localX = px - win.x;
+        const depth = acc.getHeight(localX);
+        if (depth < 0.6) continue;
+
+        if (py >= win.y - depth - 8 && py <= win.y - 1) {
+          let isOccluded = false;
+          for (let v = 0; v < w; v++) {
+            const topWin = this.openWindows[v];
+            if (
+              px >= topWin.x &&
+              px <= topWin.x + topWin.width &&
+              py >= topWin.y &&
+              py <= topWin.y + topWin.height
+            ) {
+              isOccluded = true;
+              break;
+            }
           }
-        }
-        if (isOccluded) continue;
+          if (isOccluded) continue;
 
-        return { window: win, depth };
+          return { window: win, depth };
+        }
       }
     }
     return null;
   }
 
-  public consumeWindowSnow(win: WindowBounds, amount = 0.15): number {
+  public consumeWindowSnow(win: WindowBounds, atX?: number, amount = 0.6): number {
     const key = this.getWindowKey(win);
-    const depth = this.windowSnowDepths.get(key) || 0;
-    const newDepth = Math.max(0, depth - amount);
-    this.windowSnowDepths.set(key, newDepth);
-    return newDepth;
+    const acc = this.windowAccumulators.get(key);
+    if (!acc) return 0;
+    const targetX = atX !== undefined ? atX : win.x + win.width / 2;
+    const localX = targetX - win.x;
+    acc.clearRange(localX - 18, localX + 18, amount);
+    return acc.getHeight(localX);
   }
 
-  public addWindowSnow(win: WindowBounds, amount = 0.4): number {
+  public addWindowSnow(win: WindowBounds, atX?: number, amount = 0.4): number {
     const key = this.getWindowKey(win);
-    const depth = this.windowSnowDepths.get(key) || 0;
-    const newDepth = Math.min(8.0, depth + amount);
-    this.windowSnowDepths.set(key, newDepth);
-    return newDepth;
+    const acc = this.windowAccumulators.get(key);
+    if (!acc) return 0;
+    const targetX = atX !== undefined ? atX : win.x + win.width / 2;
+    const localX = targetX - win.x;
+    acc.deposit(localX, amount);
+    return acc.getHeight(localX);
   }
 
   public isNearSnow(px: number, py: number): boolean {
@@ -232,15 +242,17 @@ export class SnowEngine {
     count = 35
   ): void {
     const key = this.getWindowKey(win);
-    const currentDepth = this.windowSnowDepths.get(key) || 0;
-    this.windowSnowDepths.set(key, Math.max(0, currentDepth - 1.8));
+    const acc = this.windowAccumulators.get(key);
+    if (acc) {
+      acc.clearRange(startX - win.x - 24, startX - win.x + 24, 2.8);
+    }
 
     const vxCenter = baseVx !== undefined ? baseVx : 0;
     const vyCenter = baseVy !== undefined ? baseVy : 4.5;
 
     for (let k = 0; k < count; k++) {
       this.tumblingClumps.push({
-        x: startX + (Math.random() * 48 - 24),
+        x: startX + (Math.random() * 40 - 20),
         y: startY + (Math.random() * 8 - 4),
         vx: vxCenter + (Math.random() - 0.5) * 3.5 + this.config.wind * 0.8,
         vy: vyCenter + (Math.random() - 0.5) * 2.8,
@@ -332,10 +344,25 @@ export class SnowEngine {
             flake.y >= win.y - 4 &&
             flake.y <= win.y + 4
           ) {
-            if (Math.random() < 0.015) {
-              const key = this.getWindowKey(win);
-              const currentDepth = this.windowSnowDepths.get(key) || 0;
-              this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.05));
+            let occluded = false;
+            for (let v = 0; v < w; v++) {
+              const topWin = this.openWindows[v];
+              if (
+                flake.x >= topWin.x &&
+                flake.x <= topWin.x + topWin.width &&
+                flake.y >= topWin.y &&
+                flake.y <= topWin.y + topWin.height
+              ) {
+                occluded = true;
+                break;
+              }
+            }
+            if (occluded) break;
+
+            const key = this.getWindowKey(win);
+            const acc = this.windowAccumulators.get(key);
+            if (acc) {
+              acc.deposit(flake.x - win.x, flake.radius * 0.14);
             }
             flake.reset(this.width);
             break;
@@ -345,10 +372,8 @@ export class SnowEngine {
     }
 
     if (this.config.accumulateOnWindows) {
-      for (const [key, depth] of this.windowSnowDepths.entries()) {
-        if (depth > 0) {
-          this.windowSnowDepths.set(key, Math.max(0, depth - 0.001));
-        }
+      for (const acc of this.windowAccumulators.values()) {
+        acc.update();
       }
     }
 
@@ -370,7 +395,7 @@ export class SnowEngine {
         if (
           clump.x >= win.x &&
           clump.x <= win.x + win.width &&
-          clump.y >= win.y - 4 &&
+          clump.y >= win.y - 6 &&
           clump.y <= win.y + 12 &&
           clump.vy > 0
         ) {
@@ -389,8 +414,10 @@ export class SnowEngine {
           }
           if (occluded) continue;
 
-          const currentDepth = this.windowSnowDepths.get(key) || 0;
-          this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.4));
+          const targetAcc = this.windowAccumulators.get(key);
+          if (targetAcc) {
+            targetAcc.deposit(clump.x - win.x, clump.radius * 0.45);
+          }
           this.tumblingClumps.splice(k, 1);
           hitWindow = true;
           break;
@@ -446,8 +473,8 @@ export class SnowEngine {
     for (let w = 0; w < this.openWindows.length; w++) {
       const win = this.openWindows[w];
       const key = this.getWindowKey(win);
-      const depth = this.windowSnowDepths.get(key) || 0;
-      if (depth < 0.3) continue;
+      const acc = this.windowAccumulators.get(key);
+      if (!acc) continue;
 
       let segments: { start: number; end: number }[] = [{ start: win.x, end: win.x + win.width }];
 
@@ -477,30 +504,48 @@ export class SnowEngine {
 
       if (segments.length === 0) continue;
 
-      const grad = ctx.createLinearGradient(0, win.y - depth, 0, win.y);
+      const grad = ctx.createLinearGradient(0, win.y - acc.maxDepth, 0, win.y);
       grad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
       grad.addColorStop(0.6, "rgba(235, 245, 255, 0.92)");
       grad.addColorStop(1, "rgba(215, 235, 255, 0.88)");
 
       for (const seg of segments) {
         const segLen = seg.end - seg.start;
-        if (segLen < 12) continue;
+        if (segLen < 8) continue;
 
-        const segWidth = 24;
-        const count = Math.max(1, Math.floor(segLen / segWidth));
-        const actualStep = segLen / count;
+        const maxH = acc.getMaxHeightInRange(seg.start - win.x, seg.end - win.x);
+        if (maxH < 0.3) continue;
+
+        const colStep = acc.columnWidth;
+        const startCol = Math.max(0, Math.floor((seg.start - win.x) / colStep));
+        const endCol = Math.min(
+          Math.ceil(win.width / colStep),
+          Math.ceil((seg.end - win.x) / colStep)
+        );
 
         ctx.beginPath();
         ctx.moveTo(seg.start, win.y);
 
-        for (let i = 0; i < count; i++) {
-          const x1 = seg.start + i * actualStep;
-          const x2 = seg.start + (i + 1) * actualStep;
-          const midX = (x1 + x2) / 2;
-          const h = depth + Math.sin((x1 % 100) * 0.1) * (depth * 0.3);
-          ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
+        let first = true;
+        for (let col = startCol; col <= endCol; col++) {
+          const x = Math.min(seg.end, Math.max(seg.start, win.x + col * colStep));
+          const h = acc.getHeight(x - win.x);
+          const y = win.y - h;
+          if (first) {
+            ctx.lineTo(x, y);
+            first = false;
+          } else {
+            const prevCol = col - 1;
+            const prevX = Math.min(seg.end, Math.max(seg.start, win.x + prevCol * colStep));
+            const prevH = acc.getHeight(prevX - win.x);
+            const prevY = win.y - prevH;
+            const midX = (prevX + x) / 2;
+            const midY = (prevY + y) / 2;
+            ctx.quadraticCurveTo(prevX, prevY, midX, midY);
+          }
         }
 
+        ctx.lineTo(seg.end, win.y);
         ctx.closePath();
         ctx.fillStyle = grad;
         ctx.fill();
