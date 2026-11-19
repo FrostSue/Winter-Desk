@@ -57,6 +57,41 @@ export class SnowEngine {
     this.taskbar = taskbar;
   }
 
+  public triggerWindowAvalanche(win: WindowBounds, depth: number): void {
+    const step = 18;
+    const count = Math.max(8, Math.floor(win.width / step));
+    for (let i = 0; i < count; i++) {
+      const clumpX = win.x + i * step + (Math.random() * 8 - 4);
+      const clumpY = win.y + (Math.random() * 6 - 3);
+      this.tumblingClumps.push({
+        x: clumpX,
+        y: clumpY,
+        vx: (Math.random() - 0.5) * 1.8 + this.config.wind * 0.4,
+        vy: 2.4 + Math.random() * 2.6,
+        radius: 2.8 + Math.random() * Math.min(3.8, depth * 0.6),
+        alpha: 0.95,
+        sourceWindowKey: this.getWindowKey(win)
+      });
+    }
+  }
+
+  public triggerRegionAvalanche(startX: number, endX: number, y: number, sourceKey: string, depth: number): void {
+    const step = 18;
+    const len = endX - startX;
+    const count = Math.max(3, Math.floor(len / step));
+    for (let i = 0; i < count; i++) {
+      this.tumblingClumps.push({
+        x: startX + i * step + (Math.random() * 6 - 3),
+        y: y + (Math.random() * 4 - 2),
+        vx: (Math.random() - 0.5) * 1.5,
+        vy: 2.4 + Math.random() * 2.4,
+        radius: 2.6 + Math.random() * Math.min(3.5, depth * 0.5),
+        alpha: 0.95,
+        sourceWindowKey: sourceKey
+      });
+    }
+  }
+
   public setOpenWindows(windows: WindowBounds[]): void {
     if (this.openWindows.length > 0) {
       for (const oldWin of this.openWindows) {
@@ -66,24 +101,26 @@ export class SnowEngine {
 
         const newWin = windows.find((w) => oldWin.id !== undefined && w.id === oldWin.id);
         if (!newWin) {
-          this.flingWindowSnow(oldWin, oldWin.x + oldWin.width / 2, oldWin.y, 0, 4.0, 30);
+          this.triggerWindowAvalanche(oldWin, depth);
           continue;
         }
 
         const lostRight = oldWin.x + oldWin.width - (newWin.x + newWin.width);
         if (lostRight > 24) {
-          const lostX = newWin.x + newWin.width + lostRight / 2;
-          this.flingWindowSnow(oldWin, lostX, oldWin.y, 0.5, 4.2, 22);
+          const startX = newWin.x + newWin.width;
+          const endX = oldWin.x + oldWin.width;
+          this.triggerRegionAvalanche(startX, endX, oldWin.y, oldKey, depth);
         }
 
         const lostLeft = newWin.x - oldWin.x;
         if (lostLeft > 24) {
-          const lostX = oldWin.x + lostLeft / 2;
-          this.flingWindowSnow(oldWin, lostX, oldWin.y, -0.5, 4.2, 22);
+          const startX = oldWin.x;
+          const endX = newWin.x;
+          this.triggerRegionAvalanche(startX, endX, oldWin.y, oldKey, depth);
         }
 
         if (newWin.y > oldWin.y + 35) {
-          this.flingWindowSnow(oldWin, oldWin.x + oldWin.width / 2, oldWin.y, 0, 3.8, 20);
+          this.triggerWindowAvalanche(oldWin, depth);
         }
       }
     }
@@ -132,11 +169,15 @@ export class SnowEngine {
   public getWindowSnowAt(px: number, py: number): { window: WindowBounds; depth: number } | null {
     for (let w = 0; w < this.openWindows.length; w++) {
       const win = this.openWindows[w];
+      const key = this.getWindowKey(win);
+      const depth = this.windowSnowDepths.get(key) || 0;
+      if (depth < 0.6) continue;
+
       if (
         px >= win.x &&
         px <= win.x + win.width &&
-        py >= win.y - 20 &&
-        py <= win.y + 16
+        py >= win.y - depth - 8 &&
+        py <= win.y - 1
       ) {
         let isOccluded = false;
         for (let v = 0; v < w; v++) {
@@ -153,17 +194,13 @@ export class SnowEngine {
         }
         if (isOccluded) continue;
 
-        const key = this.getWindowKey(win);
-        const depth = this.windowSnowDepths.get(key) || 0;
-        if (depth >= 0.8) {
-          return { window: win, depth };
-        }
+        return { window: win, depth };
       }
     }
     return null;
   }
 
-  public consumeWindowSnow(win: WindowBounds, amount = 0.08): number {
+  public consumeWindowSnow(win: WindowBounds, amount = 0.15): number {
     const key = this.getWindowKey(win);
     const depth = this.windowSnowDepths.get(key) || 0;
     const newDepth = Math.max(0, depth - amount);
@@ -203,8 +240,8 @@ export class SnowEngine {
 
     for (let k = 0; k < count; k++) {
       this.tumblingClumps.push({
-        x: startX + (Math.random() * 36 - 18),
-        y: startY + (Math.random() * 6 - 3),
+        x: startX + (Math.random() * 48 - 24),
+        y: startY + (Math.random() * 8 - 4),
         vx: vxCenter + (Math.random() - 0.5) * 3.5 + this.config.wind * 0.8,
         vy: vyCenter + (Math.random() - 0.5) * 2.8,
         radius: 2.5 + Math.random() * 3.8,
@@ -295,10 +332,10 @@ export class SnowEngine {
             flake.y >= win.y - 4 &&
             flake.y <= win.y + 4
           ) {
-            if (Math.random() < 0.12) {
+            if (Math.random() < 0.015) {
               const key = this.getWindowKey(win);
               const currentDepth = this.windowSnowDepths.get(key) || 0;
-              this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.15));
+              this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.05));
             }
             flake.reset(this.width);
             break;
