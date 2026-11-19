@@ -2,6 +2,15 @@ import { Snowflake } from "./Particle";
 import { SnowAccumulator } from "./Accumulator";
 import type { SnowConfig, TaskbarBounds, WindowBounds } from "../types";
 
+interface TumblingClump {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  alpha: number;
+}
+
 export class SnowEngine {
   private canvas: HTMLCanvasElement;
   private ctx: CanvasRenderingContext2D;
@@ -9,6 +18,8 @@ export class SnowEngine {
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds | null = null;
   private openWindows: WindowBounds[] = [];
+  private windowSnowDepths: number[] = [];
+  private tumblingClumps: TumblingClump[] = [];
   private config: SnowConfig = {
     intensity: "medium",
     flakeCount: 180,
@@ -43,6 +54,9 @@ export class SnowEngine {
 
   public setOpenWindows(windows: WindowBounds[]): void {
     this.openWindows = windows;
+    while (this.windowSnowDepths.length < windows.length) {
+      this.windowSnowDepths.push(1.5);
+    }
   }
 
   public setConfig(config: SnowConfig): void {
@@ -59,13 +73,41 @@ export class SnowEngine {
     if (this.taskbar && py >= this.taskbar.y - 30 && py <= this.taskbar.y + 12) {
       return true;
     }
-    for (const win of this.openWindows) {
+    for (let i = 0; i < this.openWindows.length; i++) {
+      const win = this.openWindows[i];
       if (
         px >= win.x &&
         px <= win.x + win.width &&
         py >= win.y - 24 &&
         py <= win.y + 12
       ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public shovelWindowSnowAt(px: number, py: number): boolean {
+    for (let i = 0; i < this.openWindows.length; i++) {
+      const win = this.openWindows[i];
+      if (
+        px >= win.x &&
+        px <= win.x + win.width &&
+        py >= win.y - 20 &&
+        py <= win.y + 16
+      ) {
+        this.windowSnowDepths[i] = Math.max(0, (this.windowSnowDepths[i] || 3) - 2.5);
+
+        for (let k = 0; k < 10; k++) {
+          this.tumblingClumps.push({
+            x: px + (Math.random() * 24 - 12),
+            y: win.y - 2,
+            vx: (Math.random() - 0.5) * 3 + this.config.wind * 1.5,
+            vy: -1.5 - Math.random() * 2.5,
+            radius: 3 + Math.random() * 3.5,
+            alpha: 1.0
+          });
+        }
         return true;
       }
     }
@@ -131,24 +173,66 @@ export class SnowEngine {
       if (canAccumulate && flake.y >= taskbarTop - 4) {
         const snowDepth = this.accumulator.getSnowHeight(flake.x);
         if (flake.y >= taskbarTop - snowDepth) {
-          this.accumulator.deposit(flake.x, flake.radius * 0.25);
+          this.accumulator.deposit(flake.x, flake.radius * 0.2);
           flake.reset(this.width);
           continue;
         }
       }
 
       if (this.config.accumulateOnWindows) {
-        for (const win of this.openWindows) {
+        for (let w = 0; w < this.openWindows.length; w++) {
+          const win = this.openWindows[w];
           if (
             flake.x >= win.x &&
             flake.x <= win.x + win.width &&
             flake.y >= win.y - 4 &&
             flake.y <= win.y + 4
           ) {
+            if (Math.random() < 0.12) {
+              const currentDepth = this.windowSnowDepths[w] || 0;
+              this.windowSnowDepths[w] = Math.min(8.0, currentDepth + 0.15);
+            }
             flake.reset(this.width);
             break;
           }
         }
+      }
+    }
+
+    if (this.config.accumulateOnWindows) {
+      for (let w = 0; w < this.windowSnowDepths.length; w++) {
+        if (this.windowSnowDepths[w] > 0) {
+          this.windowSnowDepths[w] = Math.max(0, this.windowSnowDepths[w] - 0.001);
+        }
+      }
+    }
+
+    for (let k = this.tumblingClumps.length - 1; k >= 0; k--) {
+      const clump = this.tumblingClumps[k];
+      clump.x += clump.vx;
+      clump.y += clump.vy;
+      clump.vy += 0.25;
+
+      let hitWindow = false;
+      for (let w = 0; w < this.openWindows.length; w++) {
+        const win = this.openWindows[w];
+        if (
+          clump.x >= win.x &&
+          clump.x <= win.x + win.width &&
+          clump.y >= win.y - 2 &&
+          clump.y <= win.y + 8 &&
+          clump.vy > 0
+        ) {
+          this.windowSnowDepths[w] = Math.min(8.0, (this.windowSnowDepths[w] || 0) + 0.6);
+          this.tumblingClumps.splice(k, 1);
+          hitWindow = true;
+          break;
+        }
+      }
+
+      if (!hitWindow && clump.y >= taskbarTop) {
+        this.accumulator.deposit(clump.x, 0.8);
+        this.tumblingClumps.splice(k, 1);
       }
     }
 
@@ -178,6 +262,15 @@ export class SnowEngine {
       this.ctx.shadowBlur = flake.radius > 2 ? 4 : 2;
       this.ctx.fill();
     }
+
+    for (const clump of this.tumblingClumps) {
+      this.ctx.beginPath();
+      this.ctx.arc(clump.x, clump.y, clump.radius, 0, Math.PI * 2);
+      this.ctx.fillStyle = `rgba(255, 255, 255, ${clump.alpha})`;
+      this.ctx.shadowColor = "rgba(180, 210, 240, 0.6)";
+      this.ctx.shadowBlur = 4;
+      this.ctx.fill();
+    }
     this.ctx.restore();
 
     if (this.onRenderEntities) {
@@ -187,8 +280,12 @@ export class SnowEngine {
 
   private drawWindowSnow(ctx: CanvasRenderingContext2D): void {
     ctx.save();
-    for (const win of this.openWindows) {
-      const segWidth = 28;
+    for (let w = 0; w < this.openWindows.length; w++) {
+      const win = this.openWindows[w];
+      const depth = this.windowSnowDepths[w] || 0;
+      if (depth < 0.3) continue;
+
+      const segWidth = 24;
       const count = Math.max(1, Math.floor(win.width / segWidth));
 
       ctx.beginPath();
@@ -198,13 +295,13 @@ export class SnowEngine {
         const x1 = win.x + i * segWidth;
         const x2 = Math.min(win.x + win.width, x1 + segWidth);
         const midX = (x1 + x2) / 2;
-        const h = 7 + Math.sin(i * 1.5) * 3;
+        const h = depth + Math.sin(i * 1.5) * (depth * 0.35);
         ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
       }
 
       ctx.closePath();
 
-      const grad = ctx.createLinearGradient(0, win.y - 10, 0, win.y);
+      const grad = ctx.createLinearGradient(0, win.y - depth, 0, win.y);
       grad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
       grad.addColorStop(0.6, "rgba(235, 245, 255, 0.92)");
       grad.addColorStop(1, "rgba(215, 235, 255, 0.88)");
