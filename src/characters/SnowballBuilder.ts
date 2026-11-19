@@ -43,7 +43,7 @@ export class SnowballBuilder {
       return this.accumulator.getSnowHeight(x) >= 1.5;
     }
     const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-    if (winSnow && winSnow.depth >= 0.8) {
+    if (winSnow && winSnow.depth >= 0.6) {
       return true;
     }
     return false;
@@ -59,7 +59,7 @@ export class SnowballBuilder {
     }
 
     const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-    if (winSnow && winSnow.depth >= 0.8) {
+    if (winSnow && winSnow.depth >= 0.6) {
       this.isBuilding = true;
       this.activeBall = {
         id: Math.random().toString(36).slice(2),
@@ -73,7 +73,7 @@ export class SnowballBuilder {
         windowOffsetX: x - winSnow.window.x,
         windowOffsetY: -6
       };
-      this.snowEngine.consumeWindowSnow(winSnow.window, 0.45);
+      this.snowEngine.consumeWindowSnow(winSnow.window, 0.6);
       return true;
     }
 
@@ -125,11 +125,11 @@ export class SnowballBuilder {
 
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
       const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-      if (winSnow && winSnow.depth >= 0.5) {
-        this.snowEngine.consumeWindowSnow(winSnow.window, 0.04);
+      if (winSnow && winSnow.depth >= 0.4) {
+        this.snowEngine.consumeWindowSnow(winSnow.window, 0.08);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
-          this.activeBall.radius + dist * 0.05
+          this.activeBall.radius + dist * 0.06
         );
       } else {
         const availableSnow = this.accumulator.getSnowHeight(x);
@@ -143,6 +143,10 @@ export class SnowballBuilder {
       }
     }
     return true;
+  }
+
+  public addRestingBall(ball: RollingBall): void {
+    this.restingBalls.push(ball);
   }
 
   public handleMouseUp(): void {
