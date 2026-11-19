@@ -42,7 +42,7 @@ async function bootstrap(): Promise<void> {
   const decorationManager = new DecorationManager();
   const decorationPalette = new DecorationPalette(decorationManager);
   const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
-  const snowballBuilder = new SnowballBuilder(snowEngine.getAccumulator(), taskbar);
+  const snowballBuilder = new SnowballBuilder(snowEngine, taskbar);
 
   decorationPalette.onTriggerEvent = (event) => {
     eventManager.trigger(event);
@@ -109,6 +109,10 @@ async function bootstrap(): Promise<void> {
     window.winterDesk.onWindowsUpdated((windows) => {
       openWindows = windows;
       snowEngine.setOpenWindows(windows);
+      snowballBuilder.updateWindows(windows);
+      for (const s of snowmen) {
+        s.updateWindows(windows);
+      }
     });
   }
 
@@ -120,6 +124,14 @@ async function bootstrap(): Promise<void> {
   let dragOffsetY = 0;
   let hasMovedSignificantly = false;
   let isMouseInteractive = false;
+  let snowGesture: {
+    startX: number;
+    startY: number;
+    startTime: number;
+    window: WindowBounds | null;
+    isWindowSnow: boolean;
+    isFlinging: boolean;
+  } | null = null;
 
   function setInteractivity(interactive: boolean): void {
     if (interactive !== isMouseInteractive) {
@@ -232,15 +244,39 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    if (snowEngine.shovelWindowSnowAt(mx, my)) {
+    if (snowballBuilder.containsBall(mx, my)) {
+      snowballBuilder.startAt(mx, my);
+      setInteractivity(true);
+      return;
+    }
+
+    const winSnow = snowEngine.getWindowSnowAt(mx, my);
+    if (winSnow) {
+      snowGesture = {
+        startX: mx,
+        startY: my,
+        startTime: Date.now(),
+        window: winSnow.window,
+        isWindowSnow: true,
+        isFlinging: false
+      };
+      snowballBuilder.startAt(mx, my);
+      setInteractivity(true);
       return;
     }
 
     if (snowballBuilder.canStartAt(mx, my)) {
-      if (snowballBuilder.startAt(mx, my)) {
-        setInteractivity(true);
-        return;
-      }
+      snowGesture = {
+        startX: mx,
+        startY: my,
+        startTime: Date.now(),
+        window: null,
+        isWindowSnow: false,
+        isFlinging: false
+      };
+      snowballBuilder.startAt(mx, my);
+      setInteractivity(true);
+      return;
     }
   });
 
@@ -264,6 +300,20 @@ async function bootstrap(): Promise<void> {
       }
       companion.setPosition(mx - dragOffsetX, my - dragOffsetY);
       return;
+    }
+
+    if (snowGesture && snowGesture.isWindowSnow && !snowGesture.isFlinging) {
+      const dy = my - snowGesture.startY;
+      const dx = mx - snowGesture.startX;
+      if (dy > 14 && Math.abs(dy) > Math.abs(dx) * 0.8) {
+        snowGesture.isFlinging = true;
+        snowballBuilder.activeBall = null;
+        snowballBuilder.isBuilding = false;
+        snowEngine.flingWindowSnow(snowGesture.window!, mx, my, dx * 0.6, Math.max(4.0, dy * 0.45));
+        snowGesture = null;
+        updateInteractiveHover(mx, my);
+        return;
+      }
     }
 
     if (snowballBuilder.isBuilding) {
@@ -293,6 +343,18 @@ async function bootstrap(): Promise<void> {
       if (!hasMovedSignificantly && draggedSnowman.containsPoint(mx, my)) {
         dressingRoom.openWith(draggedSnowman);
       }
+
+      const nearWin = snowEngine.getNearestWindowAt(draggedSnowman.x, draggedSnowman.y);
+      if (nearWin && Math.abs(draggedSnowman.y - nearWin.y) <= 35) {
+        draggedSnowman.attachedWindowId = nearWin.id || null;
+        draggedSnowman.windowOffsetX = draggedSnowman.x - nearWin.x;
+        draggedSnowman.windowOffsetY = 0;
+        draggedSnowman.setPosition(nearWin.x + draggedSnowman.windowOffsetX, nearWin.y);
+      } else if (Math.abs(draggedSnowman.y - taskbar.y) <= 35) {
+        draggedSnowman.attachedWindowId = null;
+        draggedSnowman.setPosition(draggedSnowman.x, taskbar.y);
+      }
+
       draggedSnowman.isDragging = false;
       draggedSnowman = null;
       updateInteractiveHover(mx, my);
@@ -308,6 +370,19 @@ async function bootstrap(): Promise<void> {
       isDraggingCompanion = false;
       updateInteractiveHover(mx, my);
       return;
+    }
+
+    if (snowGesture) {
+      if (snowGesture.isWindowSnow && !snowGesture.isFlinging) {
+        const dist = Math.hypot(mx - snowGesture.startX, my - snowGesture.startY);
+        const elapsed = Date.now() - snowGesture.startTime;
+        if (dist < 8 && elapsed < 260) {
+          snowballBuilder.activeBall = null;
+          snowballBuilder.isBuilding = false;
+          snowEngine.flingWindowSnow(snowGesture.window!, mx, my, (Math.random() - 0.5) * 3, 4.8);
+        }
+      }
+      snowGesture = null;
     }
 
     if (snowballBuilder.isBuilding) {
