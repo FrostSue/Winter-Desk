@@ -1,4 +1,5 @@
 import { Snowman } from "./Snowman";
+import type { SnowAccumulator } from "../snow/Accumulator";
 import type { TaskbarBounds } from "../types";
 
 export interface RollingBall {
@@ -15,10 +16,12 @@ export class SnowballBuilder {
   public activeBall: RollingBall | null = null;
   public restingBalls: RollingBall[] = [];
   public isBuilding = false;
+  private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds;
   public onSnowmanCreated?: (snowman: Snowman) => void;
 
-  constructor(taskbar: TaskbarBounds) {
+  constructor(accumulator: SnowAccumulator, taskbar: TaskbarBounds) {
+    this.accumulator = accumulator;
     this.taskbar = taskbar;
   }
 
@@ -26,13 +29,25 @@ export class SnowballBuilder {
     this.taskbar = taskbar;
   }
 
-  public startAt(x: number, y: number): void {
+  public canStartAt(x: number, y: number): boolean {
+    if (this.containsBall(x, y)) return true;
+    if (this.taskbar && y >= this.taskbar.y - 25 && y <= this.taskbar.y + 10) {
+      return this.accumulator.getSnowHeight(x) >= 2.0;
+    }
+    return false;
+  }
+
+  public startAt(x: number, y: number): boolean {
     const clickedExisting = this.findRestingBallAt(x, y);
     if (clickedExisting) {
       this.activeBall = clickedExisting;
       this.restingBalls = this.restingBalls.filter((b) => b.id !== clickedExisting.id);
       this.isBuilding = true;
-      return;
+      return true;
+    }
+
+    if (this.accumulator.getSnowHeight(x) < 2.0) {
+      return false;
     }
 
     this.isBuilding = true;
@@ -45,6 +60,8 @@ export class SnowballBuilder {
       rotation: 0,
       tier: 1
     };
+    this.accumulator.clearRange(x - 12, x + 12, 1.2);
+    return true;
   }
 
   public findRestingBallAt(px: number, py: number): RollingBall | null {
@@ -76,10 +93,14 @@ export class SnowballBuilder {
     this.activeBall.y = y;
 
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
-      this.activeBall.radius = Math.min(
-        this.activeBall.targetRadius,
-        this.activeBall.radius + dist * 0.06
-      );
+      const availableSnow = this.accumulator.getSnowHeight(x);
+      if (availableSnow >= 0.8) {
+        this.accumulator.clearRange(x - 14, x + 14, 0.25);
+        this.activeBall.radius = Math.min(
+          this.activeBall.targetRadius,
+          this.activeBall.radius + dist * 0.05
+        );
+      }
     }
     return true;
   }
