@@ -229,10 +229,14 @@ export class Snowman {
         if (
           this.x >= win.x &&
           this.x <= win.x + win.width &&
-          this.y >= win.y - 2 &&
+          this.y >= win.y - 4 &&
           this.y <= win.y + 16 &&
           this.vy > 0
         ) {
+          if (this.vy >= 3.0) {
+            this.shatter();
+            return;
+          }
           this.isFalling = false;
           this.vy = 0;
           this.tiltAngle = 0;
@@ -246,7 +250,7 @@ export class Snowman {
       }
 
       if (this.y >= taskbar.y) {
-        if (this.vy >= 4.5) {
+        if (this.vy >= 3.0) {
           this.shatter();
           return;
         }
