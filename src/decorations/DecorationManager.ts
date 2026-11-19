@@ -7,13 +7,15 @@ export class DecorationManager {
   private ornaments: Ornament[] = [];
   private draggedLight: {
     light: FairyLights;
-    handle: "p1" | "p2" | "body";
+    handle: "p1" | "p2" | "pMid" | "body";
     startMouseX: number;
     startMouseY: number;
     p1StartX: number;
     p1StartY: number;
     p2StartX: number;
     p2StartY: number;
+    pMidStartX: number;
+    pMidStartY: number;
   } | null = null;
   private draggedOrnament: { ornament: Ornament; offsetX: number; offsetY: number } | null = null;
 
@@ -42,6 +44,12 @@ export class DecorationManager {
   public setLightsHeight(newY: number): void {
     for (const light of this.lights) {
       light.setHeight(newY);
+    }
+  }
+
+  public setLightsSag(depth: number): void {
+    for (const light of this.lights) {
+      light.setSag(depth);
     }
   }
 
@@ -115,10 +123,13 @@ export class DecorationManager {
           p1StartX: light.p1.x,
           p1StartY: light.p1.y,
           p2StartX: light.p2.x,
-          p2StartY: light.p2.y
+          p2StartY: light.p2.y,
+          pMidStartX: light.pMid.x,
+          pMidStartY: light.pMid.y
         };
         if (hit === "p1") light.isDraggingP1 = true;
         if (hit === "p2") light.isDraggingP2 = true;
+        if (hit === "pMid") light.isDraggingPMid = true;
         if (hit === "body") light.isDraggingBody = true;
         return true;
       }
@@ -150,11 +161,16 @@ export class DecorationManager {
       } else if (this.draggedLight.handle === "p2") {
         this.draggedLight.light.p2.x = px;
         this.draggedLight.light.p2.y = py;
+      } else if (this.draggedLight.handle === "pMid") {
+        this.draggedLight.light.pMid.x = px;
+        this.draggedLight.light.pMid.y = py;
       } else if (this.draggedLight.handle === "body") {
         this.draggedLight.light.p1.x = this.draggedLight.p1StartX + dx;
         this.draggedLight.light.p1.y = this.draggedLight.p1StartY + dy;
         this.draggedLight.light.p2.x = this.draggedLight.p2StartX + dx;
         this.draggedLight.light.p2.y = this.draggedLight.p2StartY + dy;
+        this.draggedLight.light.pMid.x = this.draggedLight.pMidStartX + dx;
+        this.draggedLight.light.pMid.y = this.draggedLight.pMidStartY + dy;
       }
       return true;
     }
@@ -189,6 +205,7 @@ export class DecorationManager {
     if (this.draggedLight) {
       this.draggedLight.light.isDraggingP1 = false;
       this.draggedLight.light.isDraggingP2 = false;
+      this.draggedLight.light.isDraggingPMid = false;
       this.draggedLight.light.isDraggingBody = false;
       this.draggedLight = null;
     }
