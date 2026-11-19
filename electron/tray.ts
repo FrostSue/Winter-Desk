@@ -1,4 +1,5 @@
 import path from "node:path";
+import { spawn } from "node:child_process";
 import { app, BrowserWindow, Menu, nativeImage, type NativeImage, Tray } from "electron";
 import type { ScreenEvent, SnowConfig } from "../src/types";
 
@@ -11,7 +12,8 @@ export class TrayManager {
     minSpeed: 1,
     maxSpeed: 3,
     accumulateOnTaskbar: true,
-    accumulateOnWindows: true
+    accumulateOnWindows: true,
+    ecoMode: false
   };
 
   constructor(private mainWindow: BrowserWindow) {}
@@ -119,6 +121,19 @@ export class TrayManager {
           this.notifyConfigChange();
         }
       },
+      {
+        label: "Eco Mode (30 FPS / Low GPU)",
+        type: "checkbox",
+        checked: !!this.currentConfig.ecoMode,
+        click: (menuItem) => {
+          this.currentConfig.ecoMode = menuItem.checked;
+          this.notifyConfigChange();
+        }
+      },
+      {
+        label: "⚡ Clean App Memory (Discord / Spotify)",
+        click: () => this.cleanSystemMemory()
+      },
       { type: "separator" },
       {
         label: "Send Snowplough",
@@ -190,5 +205,13 @@ export class TrayManager {
 
   public getConfig(): SnowConfig {
     return this.currentConfig;
+  }
+
+  private cleanSystemMemory(): void {
+    const psCommand = `Add-Type -TypeDefinition 'using System; using System.Runtime.InteropServices; public class M { [DllImport("psapi.dll")] public static extern int EmptyWorkingSet(IntPtr h); }'; Get-Process | Where-Object { $_.ProcessName -match "Discord|Spotify|Antigravity|WinterDesk" } | ForEach-Object { try { [M]::EmptyWorkingSet($_.Handle) | Out-Null } catch {} }`;
+    spawn("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psCommand], {
+      windowsHide: true,
+      stdio: "ignore"
+    });
   }
 }
