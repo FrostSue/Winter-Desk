@@ -1,12 +1,4 @@
-export type OrnamentType =
-  | "red-bauble"
-  | "gold-bauble"
-  | "blue-bauble"
-  | "wreath"
-  | "stocking"
-  | "tree"
-  | "candy-cane"
-  | "gingerbread";
+import type { OrnamentType } from "../types";
 
 export class Ornament {
   public x: number;
@@ -51,13 +43,20 @@ export class Ornament {
     ctx.translate(this.x, this.y);
     ctx.rotate(this.swingAngle);
 
-    if (this.type === "red-bauble" || this.type === "gold-bauble" || this.type === "blue-bauble") {
+    if (
+      this.type === "red-bauble" ||
+      this.type === "gold-bauble" ||
+      this.type === "blue-bauble" ||
+      this.type === "purple-bauble"
+    ) {
       const color =
         this.type === "red-bauble"
           ? "#d32f2f"
           : this.type === "gold-bauble"
           ? "#fbc02d"
-          : "#1976d2";
+          : this.type === "blue-bauble"
+          ? "#1976d2"
+          : "#7b1fa2";
       this.drawBauble(ctx, color);
     } else if (this.type === "wreath") {
       this.drawWreath(ctx);
@@ -69,6 +68,18 @@ export class Ornament {
       this.drawCandyCane(ctx);
     } else if (this.type === "gingerbread") {
       this.drawGingerbread(ctx);
+    } else if (this.type === "bells") {
+      this.drawBells(ctx);
+    } else if (this.type === "ribbon") {
+      this.drawRibbon(ctx);
+    } else if (this.type === "star") {
+      this.drawStar(ctx);
+    } else if (this.type === "candle") {
+      this.drawCandle(ctx);
+    } else if (this.type === "snowflake-decor") {
+      this.drawSnowflakeDecor(ctx);
+    } else if (this.type === "gift-box") {
+      this.drawGiftBox(ctx);
     }
 
     ctx.restore();
@@ -239,6 +250,157 @@ export class Ornament {
     ctx.beginPath();
     ctx.arc(0, 29, 2, 0, Math.PI * 2);
     ctx.arc(0, 36, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawBells(ctx: CanvasRenderingContext2D): void {
+    ctx.strokeStyle = "#c62828";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ffd54f";
+    ctx.beginPath();
+    ctx.moveTo(-12, 18);
+    ctx.quadraticCurveTo(-16, 36, -20, 42);
+    ctx.lineTo(-4, 42);
+    ctx.quadraticCurveTo(-8, 36, -6, 18);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#fbc02d";
+    ctx.beginPath();
+    ctx.moveTo(6, 18);
+    ctx.quadraticCurveTo(8, 36, 4, 42);
+    ctx.lineTo(20, 42);
+    ctx.quadraticCurveTo(16, 36, 12, 18);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle = "#c62828";
+    ctx.beginPath();
+    ctx.ellipse(0, 16, 6, 4, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  private drawRibbon(ctx: CanvasRenderingContext2D): void {
+    ctx.fillStyle = "#d32f2f";
+    ctx.beginPath();
+    ctx.ellipse(-10, 18, 12, 7, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(10, 18, 12, 7, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = "#b71c1c";
+    ctx.beginPath();
+    ctx.arc(0, 18, 5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#d32f2f";
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(-3, 22);
+    ctx.lineTo(-12, 44);
+    ctx.moveTo(3, 22);
+    ctx.lineTo(12, 44);
+    ctx.stroke();
+  }
+
+  private drawStar(ctx: CanvasRenderingContext2D): void {
+    ctx.strokeStyle = "#ffe082";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(0, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = "#fbc02d";
+    ctx.beginPath();
+    const spikes = 5;
+    const outer = 18;
+    const inner = 8;
+    const centerY = 30;
+    for (let i = 0; i < spikes * 2; i++) {
+      const r = i % 2 === 0 ? outer : inner;
+      const angle = (i * Math.PI) / spikes - Math.PI / 2;
+      const x = Math.cos(angle) * r;
+      const y = centerY + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.shadowColor = "rgba(255, 215, 0, 0.7)";
+    ctx.shadowBlur = 8;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  private drawCandle(ctx: CanvasRenderingContext2D): void {
+    ctx.fillStyle = "#fff8e1";
+    ctx.beginPath();
+    ctx.roundRect(-6, 16, 12, 28, 2);
+    ctx.fill();
+
+    ctx.strokeStyle = "#424242";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(0, 16);
+    ctx.lineTo(0, 12);
+    ctx.stroke();
+
+    ctx.fillStyle = "#ff9800";
+    ctx.shadowColor = "rgba(255, 152, 0, 0.8)";
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(0, 4);
+    ctx.quadraticCurveTo(4, 9, 0, 12);
+    ctx.quadraticCurveTo(-4, 9, 0, 4);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  private drawSnowflakeDecor(ctx: CanvasRenderingContext2D): void {
+    ctx.strokeStyle = "rgba(224, 247, 250, 0.95)";
+    ctx.lineWidth = 2;
+    const centerY = 30;
+    const len = 14;
+
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const x = Math.cos(angle) * len;
+      const y = centerY + Math.sin(angle) * len;
+      ctx.beginPath();
+      ctx.moveTo(0, centerY);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+
+      const branchAngle1 = angle + 0.5;
+      const branchAngle2 = angle - 0.5;
+      const bx = Math.cos(angle) * (len * 0.6);
+      const by = centerY + Math.sin(angle) * (len * 0.6);
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(branchAngle1) * 5, by + Math.sin(branchAngle1) * 5);
+      ctx.moveTo(bx, by);
+      ctx.lineTo(bx + Math.cos(branchAngle2) * 5, by + Math.sin(branchAngle2) * 5);
+      ctx.stroke();
+    }
+  }
+
+  private drawGiftBox(ctx: CanvasRenderingContext2D): void {
+    ctx.fillStyle = "#1e88e5";
+    ctx.beginPath();
+    ctx.roundRect(-14, 18, 28, 26, 4);
+    ctx.fill();
+
+    ctx.fillStyle = "#ffd54f";
+    ctx.fillRect(-3, 18, 6, 26);
+    ctx.fillRect(-14, 28, 28, 6);
+
+    ctx.beginPath();
+    ctx.ellipse(-5, 15, 6, 3, -0.4, 0, Math.PI * 2);
+    ctx.ellipse(5, 15, 6, 3, 0.4, 0, Math.PI * 2);
     ctx.fill();
   }
 }
