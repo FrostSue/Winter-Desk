@@ -1,5 +1,17 @@
 import type { SnowmanConfig, TaskbarBounds, WindowBounds } from "../types";
 
+export interface ShatterDebris {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  rotation: number;
+  vRot: number;
+  type: "ball-base" | "ball-mid" | "ball-head" | "hat" | "scarf" | "broom" | "nose" | "particle";
+  alpha: number;
+}
+
 export class Snowman {
   public x: number;
   public y: number;
@@ -21,6 +33,10 @@ export class Snowman {
   public isWaving = false;
   public waveAngle = 0;
   public idleTimer = 0;
+  public isShattered = false;
+  public shatterTimer = 0;
+  public debris: ShatterDebris[] = [];
+  public onShatter?: (x: number, y: number, isRemovable: boolean) => void;
   public config: SnowmanConfig = {
     hat: "top-hat",
     face: "smile",
@@ -40,15 +56,165 @@ export class Snowman {
   }
 
   public startFalling(): void {
-    if (this.isFalling || this.isDragging || this.isRidingTrain) return;
+    if (this.isFalling || this.isDragging || this.isRidingTrain || this.isShattered) return;
     this.isFalling = true;
     this.vy = 1.0;
     this.tiltAngle = (Math.random() - 0.5) * 0.15;
     this.attachedWindowId = null;
   }
 
+  public shatter(): void {
+    if (this.isShattered) return;
+    this.isShattered = true;
+    this.isFalling = false;
+    this.vy = 0;
+    this.shatterTimer = 0;
+    this.debris = [];
+
+    this.debris.push({
+      x: this.x - 14,
+      y: this.y - 18,
+      vx: -2.8 - Math.random() * 2.0,
+      vy: -3.5 - Math.random() * 2.5,
+      radius: 20 * this.scale,
+      rotation: 0,
+      vRot: -0.15,
+      type: "ball-base",
+      alpha: 1.0
+    });
+
+    this.debris.push({
+      x: this.x + 12,
+      y: this.y - 42,
+      vx: 2.5 + Math.random() * 2.0,
+      vy: -4.5 - Math.random() * 2.5,
+      radius: 16 * this.scale,
+      rotation: 0,
+      vRot: 0.18,
+      type: "ball-mid",
+      alpha: 1.0
+    });
+
+    this.debris.push({
+      x: this.x + (Math.random() - 0.5) * 8,
+      y: this.y - 66,
+      vx: (Math.random() - 0.5) * 4.0,
+      vy: -5.5 - Math.random() * 2.0,
+      radius: 12 * this.scale,
+      rotation: 0,
+      vRot: (Math.random() - 0.5) * 0.25,
+      type: "ball-head",
+      alpha: 1.0
+    });
+
+    this.debris.push({
+      x: this.x + 4,
+      y: this.y - 74,
+      vx: 1.5 + Math.random() * 2.5,
+      vy: -6.0 - Math.random() * 2.0,
+      radius: 8 * this.scale,
+      rotation: 0,
+      vRot: 0.3,
+      type: "hat",
+      alpha: 1.0
+    });
+
+    this.debris.push({
+      x: this.x - 6,
+      y: this.y - 60,
+      vx: -2.0 - Math.random() * 2.0,
+      vy: -4.0 - Math.random() * 2.0,
+      radius: 7 * this.scale,
+      rotation: 0,
+      vRot: -0.2,
+      type: "scarf",
+      alpha: 1.0
+    });
+
+    this.debris.push({
+      x: this.x + 2,
+      y: this.y - 70,
+      vx: (Math.random() - 0.5) * 3.0,
+      vy: -5.0 - Math.random() * 2.0,
+      radius: 4 * this.scale,
+      rotation: 0,
+      vRot: 0.4,
+      type: "nose",
+      alpha: 1.0
+    });
+
+    if (this.config.accessory === "broom" || this.config.accessory === "candy-cane") {
+      this.debris.push({
+        x: this.x + 20,
+        y: this.y - 45,
+        vx: 3.0 + Math.random() * 2.0,
+        vy: -5.0 - Math.random() * 2.0,
+        radius: 14 * this.scale,
+        rotation: 0.2,
+        vRot: 0.2,
+        type: "broom",
+        alpha: 1.0
+      });
+    }
+
+    for (let i = 0; i < 22; i++) {
+      this.debris.push({
+        x: this.x + (Math.random() - 0.5) * 30,
+        y: this.y - 20 - Math.random() * 40,
+        vx: (Math.random() - 0.5) * 7.0,
+        vy: -2.0 - Math.random() * 6.0,
+        radius: 2.0 + Math.random() * 3.5,
+        rotation: 0,
+        vRot: (Math.random() - 0.5) * 0.4,
+        type: "particle",
+        alpha: 0.95
+      });
+    }
+
+    if (this.onShatter) {
+      this.onShatter(this.x, this.y, this.isRemovable);
+    }
+  }
+
   public update(taskbar: TaskbarBounds, windows: WindowBounds[] = []): void {
     this.idleTimer += 0.05;
+
+    if (this.isShattered) {
+      this.shatterTimer += 0.016;
+      for (const d of this.debris) {
+        d.x += d.vx;
+        d.y += d.vy;
+        d.vy += 0.32;
+        d.vx *= 0.96;
+        d.rotation += d.vRot;
+
+        if (d.y >= taskbar.y - d.radius) {
+          d.y = taskbar.y - d.radius;
+          d.vy = -d.vy * 0.35;
+          d.vRot *= 0.7;
+          if (Math.abs(d.vy) < 0.8) {
+            d.vy = 0;
+          }
+        }
+      }
+
+      if (this.isRemovable) {
+        if (this.shatterTimer > 2.0) {
+          for (const d of this.debris) {
+            d.alpha = Math.max(0, d.alpha - 0.02);
+          }
+        }
+      } else {
+        if (this.shatterTimer > 2.5) {
+          this.isShattered = false;
+          this.shatterTimer = 0;
+          this.debris = [];
+          this.y = taskbar.y;
+          this.bounceScaleY = 0.6;
+        }
+      }
+      return;
+    }
 
     if (this.bounceScaleY < 1.0) {
       this.bounceScaleY = Math.min(1.0, this.bounceScaleY + 0.05);
@@ -80,6 +246,10 @@ export class Snowman {
       }
 
       if (this.y >= taskbar.y) {
+        if (this.vy >= 4.5) {
+          this.shatter();
+          return;
+        }
         this.isFalling = false;
         this.vy = 0;
         this.tiltAngle = 0;
@@ -145,6 +315,7 @@ export class Snowman {
   }
 
   public containsPoint(px: number, py: number): boolean {
+    if (this.isShattered) return false;
     const width = 80 * this.scale;
     const height = 105 * this.scale;
     const left = this.x - width / 2;
@@ -153,6 +324,11 @@ export class Snowman {
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
+    if (this.isShattered) {
+      this.drawShattered(ctx);
+      return;
+    }
+
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.tiltAngle);
@@ -174,6 +350,88 @@ export class Snowman {
     this.drawHat(ctx, breathe);
     this.drawAccessory(ctx);
 
+    ctx.restore();
+  }
+
+  private drawShattered(ctx: CanvasRenderingContext2D): void {
+    ctx.save();
+    for (const d of this.debris) {
+      if (d.alpha <= 0) continue;
+      ctx.save();
+      ctx.globalAlpha = d.alpha;
+      ctx.translate(d.x, d.y);
+      ctx.rotate(d.rotation);
+
+      if (d.type === "particle") {
+        ctx.beginPath();
+        ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+      } else if (d.type === "ball-base" || d.type === "ball-mid" || d.type === "ball-head") {
+        ctx.beginPath();
+        ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(200, 225, 255, 0.45)";
+        ctx.beginPath();
+        ctx.arc(-d.radius * 0.3, -d.radius * 0.2, d.radius * 0.45, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (d.type === "hat") {
+        if (this.config.hat === "top-hat") {
+          ctx.fillStyle = "#263238";
+          ctx.beginPath();
+          ctx.ellipse(0, 0, 16, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillRect(-9, -16, 18, 16);
+          ctx.fillStyle = "#c62828";
+          ctx.fillRect(-9, -4, 18, 4);
+        } else if (this.config.hat === "santa-hat") {
+          ctx.fillStyle = "#d32f2f";
+          ctx.beginPath();
+          ctx.moveTo(-11, 0);
+          ctx.quadraticCurveTo(0, -22, 16, -18);
+          ctx.lineTo(9, 0);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = "#ffffff";
+          ctx.beginPath();
+          ctx.roundRect(-12, -2, 24, 5, 2.5);
+          ctx.fill();
+        }
+      } else if (d.type === "scarf") {
+        ctx.fillStyle = "#e53935";
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 12, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillRect(-3, 0, 6, 14);
+      } else if (d.type === "nose") {
+        ctx.fillStyle = "#ff6f00";
+        ctx.beginPath();
+        ctx.moveTo(-2, -3);
+        ctx.lineTo(7, 0);
+        ctx.lineTo(-2, 3);
+        ctx.closePath();
+        ctx.fill();
+      } else if (d.type === "broom") {
+        ctx.strokeStyle = "#8d6e63";
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(0, -18);
+        ctx.lineTo(0, 18);
+        ctx.stroke();
+
+        ctx.fillStyle = "#fbc02d";
+        ctx.beginPath();
+        ctx.moveTo(-6, -18);
+        ctx.lineTo(6, -18);
+        ctx.lineTo(8, -28);
+        ctx.lineTo(-8, -28);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
     ctx.restore();
   }
 
