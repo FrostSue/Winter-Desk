@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { exec } from "node:child_process";
+import { spawn, ChildProcess } from "node:child_process";
 import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { TrayManager } from "./tray";
 import type { TaskbarBounds } from "../src/types";
@@ -11,6 +11,7 @@ app.commandLine.appendSwitch("disable-backgrounding-occluded-windows", "true");
 let mainWindow: BrowserWindow | null = null;
 let trayManager: TrayManager | null = null;
 let currentIgnoreState: { ignore: boolean; forward: boolean } | null = null;
+let trackerProcess: ChildProcess | null = null;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -70,14 +71,54 @@ function calculateTaskbarBounds(): TaskbarBounds {
   };
 }
 
-function getWindowScriptPath(): string {
-  const devPath = path.join(__dirname, "../scripts/get_windows.ps1");
-  const packagedPath = path.join(app.getAppPath(), "scripts/get_windows.ps1");
-  const resourcePath = path.join(process.resourcesPath, "app/scripts/get_windows.ps1");
+function getWindowTrackerExePath(): string {
+  const devPath = path.join(__dirname, "../scripts/WindowTracker.exe");
+  const packagedPath = path.join(app.getAppPath(), "scripts/WindowTracker.exe");
+  const resourcePath = path.join(process.resourcesPath, "app/scripts/WindowTracker.exe");
 
   if (fs.existsSync(devPath)) return devPath;
   if (fs.existsSync(packagedPath)) return packagedPath;
   return resourcePath;
+}
+
+function startWindowTracker(): void {
+  const exePath = getWindowTrackerExePath();
+  if (!fs.existsSync(exePath)) {
+    return;
+  }
+
+  trackerProcess = spawn(exePath, [], {
+    windowsHide: true,
+    stdio: ["ignore", "pipe", "ignore"]
+  });
+
+  let buffer = "";
+  trackerProcess.stdout?.on("data", (chunk: Buffer) => {
+    buffer += chunk.toString();
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !mainWindow || mainWindow.isDestroyed()) continue;
+      try {
+        const windows = JSON.parse(trimmed);
+        mainWindow.webContents.send("windows-updated", windows);
+      } catch {
+      }
+    }
+  });
+
+  trackerProcess.on("exit", () => {
+    trackerProcess = null;
+  });
+}
+
+function stopWindowTracker(): void {
+  if (trackerProcess && !trackerProcess.killed) {
+    trackerProcess.kill();
+    trackerProcess = null;
+  }
 }
 
 function createMainWindow(): void {
@@ -153,29 +194,9 @@ ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean, forward = true) 
   }
 });
 
-let windowPollTimer: NodeJS.Timeout | null = null;
-
-function pollOpenWindows(): void {
-  const scriptPath = getWindowScriptPath();
-  exec(
-    `powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "${scriptPath}"`,
-    { windowsHide: true },
-    (err, stdout) => {
-      if (!err && stdout && mainWindow && !mainWindow.isDestroyed()) {
-        try {
-          const windows = JSON.parse(stdout.trim());
-          mainWindow.webContents.send("windows-updated", windows);
-        } catch {
-        }
-      }
-    }
-  );
-}
-
 app.whenReady().then(() => {
   createMainWindow();
-  pollOpenWindows();
-  windowPollTimer = setInterval(pollOpenWindows, 3000);
+  startWindowTracker();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -185,8 +206,12 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  if (windowPollTimer) clearInterval(windowPollTimer);
+  stopWindowTracker();
   if (process.platform !== "darwin") {
     app.quit();
   }
+});
+
+app.on("before-quit", () => {
+  stopWindowTracker();
 });
