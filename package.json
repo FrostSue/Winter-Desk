@@ -1,15 +1,65 @@
 {
   "name": "winter-desk",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
   "description": "Interactive ambient winter desktop companion for Windows",
   "main": "dist-electron/main.js",
+  "author": "FrostSue",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "start": "tsc && vite build && electron .",
-    "package": "tsc && vite build && electron-packager . WinterDesk --platform=win32 --arch=x64 --icon=assets/icon.ico --out=release --overwrite"
+    "package": "tsc && vite build && electron-packager . WinterDesk --platform=win32 --arch=x64 --icon=assets/icon.ico --out=release --overwrite",
+    "dist": "tsc && vite build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.winterdesk.app",
+    "productName": "WinterDesk",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "assets/**/*",
+      "scripts/WindowTracker.exe"
+    ],
+    "extraResources": [
+      {
+        "from": "scripts/WindowTracker.exe",
+        "to": "app/scripts/WindowTracker.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WinterDesk",
+      "artifactName": "WinterDesk-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "WinterDesk-Portable-${version}.${ext}"
+    }
   },
   "dependencies": {
     "pixi.js": "^8.6.6"
@@ -17,6 +67,7 @@
   "devDependencies": {
     "@electron/packager": "^18.4.4",
     "electron": "^33.2.1",
+    "electron-builder": "^26.18.0",
     "typescript": "^5.7.2",
     "vite": "^6.0.3",
     "vite-plugin-electron": "^0.29.0"
