@@ -18,7 +18,7 @@ export class SnowEngine {
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds | null = null;
   private openWindows: WindowBounds[] = [];
-  private windowSnowDepths: number[] = [];
+  private windowSnowDepths: Map<string, number> = new Map();
   private tumblingClumps: TumblingClump[] = [];
   private config: SnowConfig = {
     intensity: "medium",
@@ -48,14 +48,28 @@ export class SnowEngine {
     window.addEventListener("resize", () => this.handleResize());
   }
 
+  private getWindowKey(win: WindowBounds): string {
+    return win.id !== undefined ? String(win.id) : `${win.x}_${win.y}_${win.width}`;
+  }
+
   public setTaskbar(taskbar: TaskbarBounds): void {
     this.taskbar = taskbar;
   }
 
   public setOpenWindows(windows: WindowBounds[]): void {
     this.openWindows = windows;
-    while (this.windowSnowDepths.length < windows.length) {
-      this.windowSnowDepths.push(1.5);
+    const activeKeys = new Set<string>();
+    for (const win of windows) {
+      const key = this.getWindowKey(win);
+      activeKeys.add(key);
+      if (!this.windowSnowDepths.has(key)) {
+        this.windowSnowDepths.set(key, 2.5);
+      }
+    }
+    for (const key of this.windowSnowDepths.keys()) {
+      if (!activeKeys.has(key)) {
+        this.windowSnowDepths.delete(key);
+      }
     }
   }
 
@@ -70,19 +84,8 @@ export class SnowEngine {
   }
 
   public isNearSnow(px: number, py: number): boolean {
-    if (this.taskbar && py >= this.taskbar.y - 30 && py <= this.taskbar.y + 12) {
-      return true;
-    }
-    for (let i = 0; i < this.openWindows.length; i++) {
-      const win = this.openWindows[i];
-      if (
-        px >= win.x &&
-        px <= win.x + win.width &&
-        py >= win.y - 24 &&
-        py <= win.y + 12
-      ) {
-        return true;
-      }
+    if (this.taskbar && py >= this.taskbar.y - 25 && py <= this.taskbar.y + 10) {
+      return this.accumulator.getSnowHeight(px) >= 2.0;
     }
     return false;
   }
@@ -96,7 +99,9 @@ export class SnowEngine {
         py >= win.y - 20 &&
         py <= win.y + 16
       ) {
-        this.windowSnowDepths[i] = Math.max(0, (this.windowSnowDepths[i] || 3) - 2.5);
+        const key = this.getWindowKey(win);
+        const currentDepth = this.windowSnowDepths.get(key) || 0;
+        this.windowSnowDepths.set(key, Math.max(0, currentDepth - 2.5));
 
         for (let k = 0; k < 10; k++) {
           this.tumblingClumps.push({
@@ -189,8 +194,9 @@ export class SnowEngine {
             flake.y <= win.y + 4
           ) {
             if (Math.random() < 0.12) {
-              const currentDepth = this.windowSnowDepths[w] || 0;
-              this.windowSnowDepths[w] = Math.min(8.0, currentDepth + 0.15);
+              const key = this.getWindowKey(win);
+              const currentDepth = this.windowSnowDepths.get(key) || 0;
+              this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.15));
             }
             flake.reset(this.width);
             break;
@@ -200,9 +206,9 @@ export class SnowEngine {
     }
 
     if (this.config.accumulateOnWindows) {
-      for (let w = 0; w < this.windowSnowDepths.length; w++) {
-        if (this.windowSnowDepths[w] > 0) {
-          this.windowSnowDepths[w] = Math.max(0, this.windowSnowDepths[w] - 0.001);
+      for (const [key, depth] of this.windowSnowDepths.entries()) {
+        if (depth > 0) {
+          this.windowSnowDepths.set(key, Math.max(0, depth - 0.001));
         }
       }
     }
@@ -223,7 +229,9 @@ export class SnowEngine {
           clump.y <= win.y + 8 &&
           clump.vy > 0
         ) {
-          this.windowSnowDepths[w] = Math.min(8.0, (this.windowSnowDepths[w] || 0) + 0.6);
+          const key = this.getWindowKey(win);
+          const currentDepth = this.windowSnowDepths.get(key) || 0;
+          this.windowSnowDepths.set(key, Math.min(8.0, currentDepth + 0.6));
           this.tumblingClumps.splice(k, 1);
           hitWindow = true;
           break;
@@ -258,8 +266,6 @@ export class SnowEngine {
       this.ctx.beginPath();
       this.ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(255, 255, 255, ${flake.opacity})`;
-      this.ctx.shadowColor = "rgba(220, 240, 255, 0.8)";
-      this.ctx.shadowBlur = flake.radius > 2 ? 4 : 2;
       this.ctx.fill();
     }
 
@@ -267,8 +273,6 @@ export class SnowEngine {
       this.ctx.beginPath();
       this.ctx.arc(clump.x, clump.y, clump.radius, 0, Math.PI * 2);
       this.ctx.fillStyle = `rgba(255, 255, 255, ${clump.alpha})`;
-      this.ctx.shadowColor = "rgba(180, 210, 240, 0.6)";
-      this.ctx.shadowBlur = 4;
       this.ctx.fill();
     }
     this.ctx.restore();
@@ -282,37 +286,70 @@ export class SnowEngine {
     ctx.save();
     for (let w = 0; w < this.openWindows.length; w++) {
       const win = this.openWindows[w];
-      const depth = this.windowSnowDepths[w] || 0;
+      const key = this.getWindowKey(win);
+      const depth = this.windowSnowDepths.get(key) || 0;
       if (depth < 0.3) continue;
 
-      const segWidth = 24;
-      const count = Math.max(1, Math.floor(win.width / segWidth));
+      let segments: { start: number; end: number }[] = [{ start: win.x, end: win.x + win.width }];
 
-      ctx.beginPath();
-      ctx.moveTo(win.x, win.y);
+      for (let v = 0; v < w; v++) {
+        const topWin = this.openWindows[v];
+        if (topWin.y <= win.y && topWin.y + topWin.height >= win.y) {
+          const occStart = topWin.x;
+          const occEnd = topWin.x + topWin.width;
+          const nextSegments: { start: number; end: number }[] = [];
 
-      for (let i = 0; i < count; i++) {
-        const x1 = win.x + i * segWidth;
-        const x2 = Math.min(win.x + win.width, x1 + segWidth);
-        const midX = (x1 + x2) / 2;
-        const h = depth + Math.sin(i * 1.5) * (depth * 0.35);
-        ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
+          for (const seg of segments) {
+            if (occEnd <= seg.start || occStart >= seg.end) {
+              nextSegments.push(seg);
+            } else {
+              if (occStart > seg.start) {
+                nextSegments.push({ start: seg.start, end: occStart });
+              }
+              if (occEnd < seg.end) {
+                nextSegments.push({ start: occEnd, end: seg.end });
+              }
+            }
+          }
+          segments = nextSegments;
+          if (segments.length === 0) break;
+        }
       }
 
-      ctx.closePath();
+      if (segments.length === 0) continue;
 
       const grad = ctx.createLinearGradient(0, win.y - depth, 0, win.y);
       grad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
       grad.addColorStop(0.6, "rgba(235, 245, 255, 0.92)");
       grad.addColorStop(1, "rgba(215, 235, 255, 0.88)");
-      ctx.fillStyle = grad;
-      ctx.shadowColor = "rgba(180, 215, 255, 0.5)";
-      ctx.shadowBlur = 4;
-      ctx.fill();
 
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      for (const seg of segments) {
+        const segLen = seg.end - seg.start;
+        if (segLen < 12) continue;
+
+        const segWidth = 24;
+        const count = Math.max(1, Math.floor(segLen / segWidth));
+        const actualStep = segLen / count;
+
+        ctx.beginPath();
+        ctx.moveTo(seg.start, win.y);
+
+        for (let i = 0; i < count; i++) {
+          const x1 = seg.start + i * actualStep;
+          const x2 = seg.start + (i + 1) * actualStep;
+          const midX = (x1 + x2) / 2;
+          const h = depth + Math.sin((x1 % 100) * 0.1) * (depth * 0.3);
+          ctx.quadraticCurveTo(midX, win.y - h, x2, win.y);
+        }
+
+        ctx.closePath();
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
