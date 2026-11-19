@@ -43,6 +43,7 @@ interface GiftTrainVehicle {
   y: number;
   speed: number;
   wheelRotation: number;
+  passengers: ("snowman" | "companion")[];
   smoke: { x: number; y: number; radius: number; alpha: number }[];
 }
 
@@ -108,6 +109,40 @@ export class EventManager {
     return this.fighters.length > 0;
   }
 
+  public hasTrain(): boolean {
+    return this.activeTrain !== null;
+  }
+
+  public getTrainPassengerPos(): { x: number; y: number } | null {
+    if (!this.activeTrain) return null;
+    return {
+      x: this.activeTrain.x + 85,
+      y: this.activeTrain.y - 20
+    };
+  }
+
+  public isTrainNear(px: number, py: number): boolean {
+    if (!this.activeTrain) return false;
+    return (
+      px >= this.activeTrain.x - 80 &&
+      px <= this.activeTrain.x + 200 &&
+      py >= this.activeTrain.y - 70 &&
+      py <= this.activeTrain.y + 20
+    );
+  }
+
+  public boardTrain(type: "snowman" | "companion"): void {
+    if (this.activeTrain && !this.activeTrain.passengers.includes(type)) {
+      this.activeTrain.passengers.push(type);
+    }
+  }
+
+  public unboardTrain(): void {
+    if (this.activeTrain) {
+      this.activeTrain.passengers = [];
+    }
+  }
+
   private spawnSnowplough(): void {
     this.activePlough = {
       x: -120,
@@ -157,12 +192,13 @@ export class EventManager {
     };
   }
 
-  private spawnTrain(): void {
+  public spawnTrain(): void {
     this.activeTrain = {
-      x: -260,
+      x: -280,
       y: this.taskbar.y,
-      speed: 2.8,
+      speed: 3.0,
       wheelRotation: 0,
+      passengers: [],
       smoke: []
     };
   }
@@ -181,19 +217,22 @@ export class EventManager {
 
     if (this.activeSanta) {
       this.activeSanta.x += this.activeSanta.vx;
-      this.activeSanta.y += Math.sin(this.activeSanta.x * 0.015) * 1.5;
+      this.activeSanta.y += this.activeSanta.vy;
 
-      this.activeSanta.trail.push({
-        x: this.activeSanta.x,
-        y: this.activeSanta.y + 12,
-        alpha: 0.9,
-        size: 3 + Math.random() * 3
-      });
+      if (Math.random() < 0.6) {
+        this.activeSanta.trail.push({
+          x: this.activeSanta.x - 20,
+          y: this.activeSanta.y + (Math.random() * 12 - 6),
+          alpha: 1.0,
+          size: 2 + Math.random() * 3
+        });
+      }
 
       for (let i = this.activeSanta.trail.length - 1; i >= 0; i--) {
         const star = this.activeSanta.trail[i];
-        star.alpha -= 0.02;
-        star.y += 0.3;
+        star.x -= 1.2;
+        star.y += 0.4;
+        star.alpha -= 0.025;
         if (star.alpha <= 0) {
           this.activeSanta.trail.splice(i, 1);
         }
@@ -210,7 +249,7 @@ export class EventManager {
 
       if (Math.random() < 0.3) {
         this.activeTrain.smoke.push({
-          x: this.activeTrain.x + 65,
+          x: this.activeTrain.x + 130,
           y: this.activeTrain.y - 48,
           radius: 4,
           alpha: 0.8
@@ -228,7 +267,7 @@ export class EventManager {
         }
       }
 
-      if (this.activeTrain.x > window.innerWidth + 300) {
+      if (this.activeTrain.x > window.innerWidth + 350) {
         this.activeTrain = null;
       }
     }
@@ -431,64 +470,122 @@ export class EventManager {
       ctx.fill();
     }
 
-    ctx.fillStyle = "#b71c1c";
+    ctx.fillStyle = "#1e88e5";
     ctx.beginPath();
-    ctx.roundRect(0, -38, 75, 30, [4, 8, 2, 2]);
+    ctx.roundRect(-70, -28, 60, 22, 3);
     ctx.fill();
 
-    ctx.fillStyle = "#263238";
-    ctx.fillRect(55, -48, 12, 12);
-    ctx.fillRect(8, -44, 24, 8);
+    ctx.fillStyle = "#ffd54f";
+    ctx.fillRect(-52, -34, 10, 8);
+    ctx.fillStyle = "#e53935";
+    ctx.fillRect(-34, -36, 12, 10);
 
-    ctx.fillStyle = "#fff59d";
-    ctx.fillRect(12, -34, 16, 14);
+    this.drawWheel(ctx, -55, -4, train.wheelRotation);
+    this.drawWheel(ctx, -25, -4, train.wheelRotation);
 
     ctx.fillStyle = "#2e7d32";
     ctx.beginPath();
-    ctx.roundRect(82, -32, 65, 24, 4);
+    ctx.roundRect(0, -28, 75, 22, 3);
     ctx.fill();
 
-    ctx.fillStyle = "#e53935";
-    ctx.fillRect(96, -42, 16, 12);
-    ctx.fillStyle = "#ffd54f";
-    ctx.fillRect(102, -42, 4, 12);
+    ctx.strokeStyle = "#ffd54f";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(2, -26, 71, 18);
 
-    ctx.fillStyle = "#f57c00";
+    if (train.passengers.includes("snowman")) {
+      ctx.save();
+      ctx.translate(22, -28);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(0, -10, 10, 0, Math.PI * 2);
+      ctx.arc(0, -26, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#222";
+      ctx.beginPath();
+      ctx.arc(-2, -27, 1.2, 0, Math.PI * 2);
+      ctx.arc(2, -27, 1.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ff6f00";
+      ctx.beginPath();
+      ctx.moveTo(0, -25);
+      ctx.lineTo(4, -24);
+      ctx.lineTo(0, -23);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    if (train.passengers.includes("companion")) {
+      ctx.save();
+      ctx.translate(52, -28);
+      ctx.fillStyle = "#263238";
+      ctx.beginPath();
+      ctx.ellipse(0, -12, 8, 12, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(1, -11, 5, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "#ffb300";
+      ctx.beginPath();
+      ctx.arc(4, -18, 2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    this.drawWheel(ctx, 16, -4, train.wheelRotation);
+    this.drawWheel(ctx, 58, -4, train.wheelRotation);
+
+    ctx.fillStyle = "#b71c1c";
     ctx.beginPath();
-    ctx.roundRect(154, -32, 65, 24, 4);
+    ctx.roundRect(85, -38, 70, 30, [4, 8, 2, 2]);
     ctx.fill();
 
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#263238";
+    ctx.fillRect(135, -48, 10, 12);
+    ctx.fillRect(92, -44, 22, 8);
+
+    ctx.fillStyle = "#fff59d";
+    ctx.fillRect(96, -34, 14, 12);
+
+    this.drawWheel(ctx, 102, -4, train.wheelRotation);
+    this.drawWheel(ctx, 140, -4, train.wheelRotation);
+
+    ctx.strokeStyle = "#424242";
+    ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.roundRect(168, -46, 24, 16, 2);
-    ctx.fill();
-    ctx.strokeStyle = "#e53935";
-    ctx.lineWidth = 1.5;
+    ctx.moveTo(-10, -12);
+    ctx.lineTo(0, -12);
+    ctx.moveTo(75, -12);
+    ctx.lineTo(85, -12);
     ctx.stroke();
-
-    this.drawWheel(ctx, 16, -6, train.wheelRotation);
-    this.drawWheel(ctx, 38, -6, train.wheelRotation);
-    this.drawWheel(ctx, 60, -6, train.wheelRotation);
-    this.drawWheel(ctx, 96, -6, train.wheelRotation);
-    this.drawWheel(ctx, 134, -6, train.wheelRotation);
-    this.drawWheel(ctx, 168, -6, train.wheelRotation);
-    this.drawWheel(ctx, 204, -6, train.wheelRotation);
 
     ctx.restore();
   }
 
-  private drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, rot: number): void {
+  private drawWheel(ctx: CanvasRenderingContext2D, x: number, y: number, rotation: number): void {
     ctx.save();
     ctx.translate(x, y);
-    ctx.rotate(rot);
+    ctx.rotate(rotation);
 
     ctx.beginPath();
-    ctx.arc(0, 0, 8, 0, Math.PI * 2);
-    ctx.fillStyle = "#263238";
+    ctx.arc(0, 0, 7, 0, Math.PI * 2);
+    ctx.fillStyle = "#37474f";
     ctx.fill();
+    ctx.strokeStyle = "#78909c";
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
 
     ctx.beginPath();
-    ctx.arc(0, 0, 3, 0, Math.PI * 2);
+    ctx.moveTo(-6, 0);
+    ctx.lineTo(6, 0);
+    ctx.moveTo(0, -6);
+    ctx.lineTo(0, 6);
+    ctx.strokeStyle = "#90a4ae";
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
     ctx.fillStyle = "#b0bec5";
     ctx.fill();
 
