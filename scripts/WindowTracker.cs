@@ -66,7 +66,7 @@ namespace WindowTracker {
                                     int w = r.Right - r.Left;
                                     int h = r.Bottom - r.Top;
                                     if (w >= 180 && h >= 100 && r.Top >= -40 && r.Left >= -40) {
-                                        list.Add(string.Format("{{\"x\":{0},\"y\":{1},\"width\":{2},\"height\":{3}}}", r.Left, r.Top, w, h));
+                                        list.Add(string.Format("{{\"id\":{0},\"x\":{1},\"y\":{2},\"width\":{3},\"height\":{4}}}", (long)hWnd, r.Left, r.Top, w, h));
                                     }
                                 }
                             }
@@ -82,7 +82,7 @@ namespace WindowTracker {
                     Console.Out.Flush();
                 }
 
-                Thread.Sleep(50);
+                Thread.Sleep(25);
             }
         }
     }
