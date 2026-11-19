@@ -73,7 +73,7 @@ export class SnowballBuilder {
         windowOffsetX: x - winSnow.window.x,
         windowOffsetY: -6
       };
-      this.snowEngine.consumeWindowSnow(winSnow.window, 0.6);
+      this.snowEngine.consumeWindowSnow(winSnow.window, x, 0.6);
       return true;
     }
 
@@ -126,7 +126,7 @@ export class SnowballBuilder {
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
       const winSnow = this.snowEngine.getWindowSnowAt(x, y);
       if (winSnow && winSnow.depth >= 0.4) {
-        this.snowEngine.consumeWindowSnow(winSnow.window, 0.08);
+        this.snowEngine.consumeWindowSnow(winSnow.window, x, 0.1);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
           this.activeBall.radius + dist * 0.06
