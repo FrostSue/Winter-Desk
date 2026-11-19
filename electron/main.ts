@@ -5,8 +5,12 @@ import { app, BrowserWindow, ipcMain, screen } from "electron";
 import { TrayManager } from "./tray";
 import type { TaskbarBounds } from "../src/types";
 
+app.commandLine.appendSwitch("disable-features", "CalculateNativeWinOcclusion");
+app.commandLine.appendSwitch("disable-backgrounding-occluded-windows", "true");
+
 let mainWindow: BrowserWindow | null = null;
 let trayManager: TrayManager | null = null;
+let currentIgnoreState: { ignore: boolean; forward: boolean } | null = null;
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -85,6 +89,7 @@ function createMainWindow(): void {
     y: bounds.y,
     width: bounds.width,
     height: bounds.height,
+    type: "toolbar",
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -101,11 +106,13 @@ function createMainWindow(): void {
     }
   });
 
+  mainWindow.setContentProtection(false);
   mainWindow.setAlwaysOnTop(true);
   mainWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
+    currentIgnoreState = { ignore: true, forward: true };
     mainWindow?.setIgnoreMouseEvents(true, { forward: true });
   });
 
@@ -132,6 +139,15 @@ ipcMain.handle("get-taskbar-bounds", () => {
 });
 
 ipcMain.on("set-ignore-mouse-events", (_event, ignore: boolean, forward = true) => {
+  if (
+    currentIgnoreState &&
+    currentIgnoreState.ignore === ignore &&
+    currentIgnoreState.forward === forward
+  ) {
+    return;
+  }
+
+  currentIgnoreState = { ignore, forward };
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.setIgnoreMouseEvents(ignore, { forward });
   }
