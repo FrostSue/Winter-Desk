@@ -58,6 +58,36 @@ export class SnowEngine {
   }
 
   public setOpenWindows(windows: WindowBounds[]): void {
+    if (this.openWindows.length > 0) {
+      for (const oldWin of this.openWindows) {
+        const oldKey = this.getWindowKey(oldWin);
+        const depth = this.windowSnowDepths.get(oldKey) || 0;
+        if (depth < 0.6) continue;
+
+        const newWin = windows.find((w) => oldWin.id !== undefined && w.id === oldWin.id);
+        if (!newWin) {
+          this.flingWindowSnow(oldWin, oldWin.x + oldWin.width / 2, oldWin.y, 0, 4.0, 30);
+          continue;
+        }
+
+        const lostRight = oldWin.x + oldWin.width - (newWin.x + newWin.width);
+        if (lostRight > 24) {
+          const lostX = newWin.x + newWin.width + lostRight / 2;
+          this.flingWindowSnow(oldWin, lostX, oldWin.y, 0.5, 4.2, 22);
+        }
+
+        const lostLeft = newWin.x - oldWin.x;
+        if (lostLeft > 24) {
+          const lostX = oldWin.x + lostLeft / 2;
+          this.flingWindowSnow(oldWin, lostX, oldWin.y, -0.5, 4.2, 22);
+        }
+
+        if (newWin.y > oldWin.y + 35) {
+          this.flingWindowSnow(oldWin, oldWin.x + oldWin.width / 2, oldWin.y, 0, 3.8, 20);
+        }
+      }
+    }
+
     this.openWindows = windows;
     const activeKeys = new Set<string>();
     for (const win of windows) {
