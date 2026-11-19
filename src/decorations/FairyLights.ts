@@ -1,3 +1,5 @@
+import type { LightColorTheme } from "../types";
+
 export interface LightHandle {
   x: number;
   y: number;
@@ -9,13 +11,32 @@ export class FairyLights {
   public p2: LightHandle;
   public isDraggingP1 = false;
   public isDraggingP2 = false;
+  public isDraggingBody = false;
   public isHovered = false;
-  private bulbColors = ["#ff5252", "#ffd740", "#69f0ae", "#40c4ff", "#e040fb", "#ff6e40"];
+  public theme: LightColorTheme = "rainbow";
   private animTimer = 0;
 
-  constructor(x1: number, y1: number, x2: number, y2: number) {
-    this.p1 = { x: x1, y: y1, radius: 4 };
-    this.p2 = { x: x2, y: y2, radius: 4 };
+  private colorPalettes: Record<LightColorTheme, string[]> = {
+    rainbow: ["#ff5252", "#ffd740", "#69f0ae", "#40c4ff", "#e040fb", "#ff6e40"],
+    "warm-white": ["#fff8e1", "#ffecb3", "#ffe082", "#ffd54f", "#fff9c4"],
+    "ice-blue": ["#e1f5fe", "#81d4fa", "#29b6f6", "#0288d1", "#e0f7fa"],
+    candy: ["#ff1744", "#ffffff", "#00e676", "#ffffff", "#d50000"]
+  };
+
+  constructor(x1: number, y1: number, x2: number, y2: number, theme: LightColorTheme = "rainbow") {
+    this.p1 = { x: x1, y: y1, radius: 6 };
+    this.p2 = { x: x2, y: y2, radius: 6 };
+    this.theme = theme;
+  }
+
+  public setColorTheme(theme: LightColorTheme): void {
+    this.theme = theme;
+  }
+
+  public setHeight(newY: number): void {
+    const dy = newY - this.p1.y;
+    this.p1.y = newY;
+    this.p2.y += dy;
   }
 
   public update(): void {
@@ -24,17 +45,25 @@ export class FairyLights {
 
   public resize(newWidth: number): void {
     this.p1.x = 0;
-    this.p1.y = 2;
     this.p2.x = newWidth;
-    this.p2.y = 2;
   }
 
-  public hitTest(px: number, py: number): "p1" | "p2" | null {
+  public hitTest(px: number, py: number): "p1" | "p2" | "body" | null {
     const d1 = Math.hypot(px - this.p1.x, py - this.p1.y);
-    if (d1 <= this.p1.radius + 8) return "p1";
+    if (d1 <= this.p1.radius + 12) return "p1";
 
     const d2 = Math.hypot(px - this.p2.x, py - this.p2.y);
-    if (d2 <= this.p2.radius + 8) return "p2";
+    if (d2 <= this.p2.radius + 12) return "p2";
+
+    const minX = Math.min(this.p1.x, this.p2.x);
+    const maxX = Math.max(this.p1.x, this.p2.x);
+    if (px >= minX && px <= maxX) {
+      const t = (px - this.p1.x) / (this.p2.x - this.p1.x || 1);
+      const baseY = this.p1.y + (this.p2.y - this.p1.y) * t;
+      if (Math.abs(py - baseY) <= 24) {
+        return "body";
+      }
+    }
 
     return null;
   }
@@ -47,7 +76,8 @@ export class FairyLights {
 
     const scallopSpan = 110;
     const scallopCount = Math.max(1, Math.round(totalDistance / scallopSpan));
-    const sagHeight = 7;
+    const sagHeight = 8;
+    const colors = this.colorPalettes[this.theme] || this.colorPalettes.rainbow;
 
     ctx.save();
     let bulbIndex = 0;
@@ -77,7 +107,7 @@ export class FairyLights {
         const bx = (1 - bt) * (1 - bt) * sx1 + 2 * (1 - bt) * bt * midX + bt * bt * sx2;
         const by = (1 - bt) * (1 - bt) * sy1 + 2 * (1 - bt) * bt * midY + bt * bt * sy2;
 
-        const color = this.bulbColors[bulbIndex % this.bulbColors.length];
+        const color = colors[bulbIndex % colors.length];
         const intensity = 0.5 + 0.5 * Math.sin(this.animTimer * 2.5 + bulbIndex * 1.2);
 
         this.drawBulb(ctx, bx, by, color, intensity);
@@ -85,7 +115,7 @@ export class FairyLights {
       }
     }
 
-    if (this.isHovered || this.isDraggingP1 || this.isDraggingP2) {
+    if (this.isHovered || this.isDraggingP1 || this.isDraggingP2 || this.isDraggingBody) {
       this.drawHandle(ctx, this.p1, this.isDraggingP1);
       this.drawHandle(ctx, this.p2, this.isDraggingP2);
     }
@@ -103,7 +133,7 @@ export class FairyLights {
     ctx.fillStyle = "#263238";
     ctx.fillRect(x - 1, y - 1, 2, 2);
 
-    const glowRadius = 5 + intensity * 5;
+    const glowRadius = 5 + intensity * 6;
     const glow = ctx.createRadialGradient(x, y + 3, 1, x, y + 3, glowRadius);
     glow.addColorStop(0, color);
     glow.addColorStop(0.5, color);
