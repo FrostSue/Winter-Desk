@@ -1,11 +1,12 @@
 import { SnowEngine } from "./snow/SnowEngine";
 import { Snowman } from "./characters/Snowman";
+import { CompanionBuddy } from "./characters/CompanionBuddy";
 import { SnowballBuilder } from "./characters/SnowballBuilder";
 import { DressingRoomModal } from "./ui/DressingRoom";
 import { DecorationPalette } from "./ui/DecorationPalette";
 import { EventManager } from "./events/EventManager";
 import { DecorationManager } from "./decorations/DecorationManager";
-import type { TaskbarBounds } from "./types";
+import type { TaskbarBounds, WindowBounds } from "./types";
 
 async function bootstrap(): Promise<void> {
   const canvas = document.getElementById("snow-canvas") as HTMLCanvasElement;
@@ -22,6 +23,8 @@ async function bootstrap(): Promise<void> {
   };
 
   let taskbar = defaultTaskbar;
+  let openWindows: WindowBounds[] = [];
+
   if (window.winterDesk?.getTaskbarBounds) {
     taskbar = await window.winterDesk.getTaskbarBounds();
   }
@@ -30,15 +33,23 @@ async function bootstrap(): Promise<void> {
   snowEngine.setTaskbar(taskbar);
   snowEngine.start();
 
-  const snowman = new Snowman(window.innerWidth * 0.75, taskbar);
-  const dressingRoom = new DressingRoomModal(snowman);
+  const mainSnowman = new Snowman(window.innerWidth * 0.75, taskbar);
+  mainSnowman.isRemovable = false;
+  let snowmen: Snowman[] = [mainSnowman];
+
+  const companion = new CompanionBuddy(window.innerWidth * 0.42, taskbar.y);
+  const dressingRoom = new DressingRoomModal(mainSnowman);
   const decorationManager = new DecorationManager();
   const decorationPalette = new DecorationPalette(decorationManager);
   const eventManager = new EventManager(snowEngine.getAccumulator(), taskbar);
   const snowballBuilder = new SnowballBuilder(taskbar);
 
+  decorationPalette.onTriggerEvent = (event) => {
+    eventManager.trigger(event);
+  };
+
   snowballBuilder.onSnowmanCreated = (newSnowman) => {
-    snowman.setPosition(newSnowman.x, newSnowman.y);
+    snowmen.push(newSnowman);
   };
 
   const deckButton = document.createElement("button");
@@ -49,7 +60,7 @@ async function bootstrap(): Promise<void> {
     top: "14px",
     right: "24px",
     zIndex: "900",
-    background: "rgba(20, 26, 38, 0.72)",
+    background: "rgba(20, 26, 38, 0.75)",
     backdropFilter: "blur(12px)",
     WebkitBackdropFilter: "blur(12px)",
     border: "1px solid rgba(255, 255, 255, 0.2)",
@@ -88,7 +99,7 @@ async function bootstrap(): Promise<void> {
     });
 
     window.winterDesk.onToggleDressingRoom(() => {
-      dressingRoom.toggle();
+      dressingRoom.openWith(mainSnowman);
     });
 
     window.winterDesk.onToggleDecorations(() => {
@@ -96,115 +107,210 @@ async function bootstrap(): Promise<void> {
     });
 
     window.winterDesk.onWindowsUpdated((windows) => {
+      openWindows = windows;
       snowEngine.setOpenWindows(windows);
     });
   }
 
-  let isHoveringSnowman = false;
-  let isDraggingSnowman = false;
-  let isMouseInteractive = false;
-  let snowmanDragStartX = 0;
-  let snowmanDragStartY = 0;
-  let snowmanOffsetX = 0;
-  let snowmanOffsetY = 0;
+  let draggedSnowman: Snowman | null = null;
+  let isDraggingCompanion = false;
+  let dragStartX = 0;
+  let dragStartY = 0;
+  let dragOffsetX = 0;
+  let dragOffsetY = 0;
   let hasMovedSignificantly = false;
+  let isMouseInteractive = false;
 
-  function updateInteractiveHover(mouseX: number, mouseY: number): void {
-    const hoveringSnowman = snowman.containsPoint(mouseX, mouseY);
-    const hoveringFighter = eventManager.containsFighter(mouseX, mouseY);
-    const hoveringSnow = snowEngine.isNearSnow(mouseX, mouseY);
-    const decorHandled = decorationManager.handleMouseMove(mouseX, mouseY);
-
-    const isInteractive =
-      hoveringSnowman ||
-      hoveringFighter ||
-      hoveringSnow ||
-      decorHandled ||
-      isDraggingSnowman ||
-      snowballBuilder.isBuilding;
-
-    if (hoveringSnowman !== isHoveringSnowman) {
-      isHoveringSnowman = hoveringSnowman;
-      snowman.setWaving(hoveringSnowman);
-    }
-
-    if (isInteractive !== isMouseInteractive) {
-      isMouseInteractive = isInteractive;
-      window.winterDesk?.setIgnoreMouseEvents(!isInteractive, true);
+  function setInteractivity(interactive: boolean): void {
+    if (interactive !== isMouseInteractive) {
+      isMouseInteractive = interactive;
+      window.winterDesk?.setIgnoreMouseEvents(!interactive, true);
     }
   }
 
-  window.addEventListener("mousedown", (e) => {
-    if (e.button === 2) {
-      if (eventManager.containsFighter(e.clientX, e.clientY)) {
-        eventManager.stopSnowballFight();
-        return;
-      }
-      decorationManager.handleMouseDown(e.clientX, e.clientY, 2);
+  function updateInteractiveHover(mx: number, my: number): void {
+    if (draggedSnowman || isDraggingCompanion || snowballBuilder.isBuilding || decorationManager.isDraggingAny()) {
+      setInteractivity(true);
       return;
     }
 
-    if (eventManager.containsFighter(e.clientX, e.clientY)) {
+    const hoverSnowman = snowmen.find((s) => s.containsPoint(mx, my));
+    const hoverCompanion = companion.containsPoint(mx, my);
+    const hoverFighter = eventManager.containsFighter(mx, my);
+    const hoverSnow = snowEngine.isNearSnow(mx, my);
+    const hoverDecor = decorationManager.hitTest(mx, my);
+    const hoverBall = snowballBuilder.containsBall(mx, my);
+    const hoverTrain = eventManager.isTrainNear(mx, my);
+
+    for (const s of snowmen) {
+      s.setWaving(s === hoverSnowman);
+    }
+    companion.isWaving = hoverCompanion;
+
+    const interactive = Boolean(
+      hoverSnowman ||
+      hoverCompanion ||
+      hoverFighter ||
+      hoverSnow ||
+      hoverDecor ||
+      hoverBall ||
+      hoverTrain
+    );
+
+    setInteractivity(interactive);
+  }
+
+  window.addEventListener("mousedown", (e) => {
+    const mx = e.clientX;
+    const my = e.clientY;
+
+    if (e.button === 2) {
+      if (eventManager.containsFighter(mx, my)) {
+        eventManager.stopSnowballFight();
+        return;
+      }
+
+      for (let i = snowmen.length - 1; i >= 0; i--) {
+        const s = snowmen[i];
+        if (s.isRemovable && s.containsPoint(mx, my)) {
+          snowmen.splice(i, 1);
+          return;
+        }
+      }
+
+      decorationManager.handleMouseDown(mx, my, 2);
+      return;
+    }
+
+    if (eventManager.containsFighter(mx, my)) {
       eventManager.stopSnowballFight();
       return;
     }
 
-    if (snowman.containsPoint(e.clientX, e.clientY)) {
-      isDraggingSnowman = true;
+    if (eventManager.hasTrain() && eventManager.isTrainNear(mx, my)) {
+      eventManager.boardTrain("snowman");
+      eventManager.boardTrain("companion");
+      mainSnowman.isRidingTrain = true;
+      companion.isRidingTrain = true;
+      return;
+    }
+
+    const clickedSnowman = snowmen.find((s) => s.containsPoint(mx, my));
+    if (clickedSnowman) {
+      draggedSnowman = clickedSnowman;
+      clickedSnowman.isDragging = true;
       hasMovedSignificantly = false;
-      snowmanDragStartX = e.clientX;
-      snowmanDragStartY = e.clientY;
-      snowmanOffsetX = e.clientX - snowman.x;
-      snowmanOffsetY = e.clientY - snowman.y;
-      window.winterDesk?.setIgnoreMouseEvents(false);
+      dragStartX = mx;
+      dragStartY = my;
+      dragOffsetX = mx - clickedSnowman.x;
+      dragOffsetY = my - clickedSnowman.y;
+      setInteractivity(true);
       return;
     }
 
-    if (snowEngine.isNearSnow(e.clientX, e.clientY)) {
-      snowballBuilder.startAt(e.clientX, e.clientY);
-      window.winterDesk?.setIgnoreMouseEvents(false);
+    if (companion.containsPoint(mx, my)) {
+      isDraggingCompanion = true;
+      companion.isDragging = true;
+      hasMovedSignificantly = false;
+      dragStartX = mx;
+      dragStartY = my;
+      dragOffsetX = mx - companion.x;
+      dragOffsetY = my - companion.y;
+      setInteractivity(true);
       return;
     }
 
-    decorationManager.handleMouseDown(e.clientX, e.clientY, 0);
+    if (decorationManager.hitTest(mx, my)) {
+      decorationManager.handleMouseDown(mx, my, 0);
+      setInteractivity(true);
+      return;
+    }
+
+    if (snowEngine.shovelWindowSnowAt(mx, my)) {
+      return;
+    }
+
+    if (snowEngine.isNearSnow(mx, my) || snowballBuilder.containsBall(mx, my)) {
+      snowballBuilder.startAt(mx, my);
+      setInteractivity(true);
+      return;
+    }
   });
 
   window.addEventListener("mousemove", (e) => {
-    if (isDraggingSnowman) {
-      const dist = Math.hypot(e.clientX - snowmanDragStartX, e.clientY - snowmanDragStartY);
+    const mx = e.clientX;
+    const my = e.clientY;
+
+    if (draggedSnowman) {
+      const dist = Math.hypot(mx - dragStartX, my - dragStartY);
       if (dist > 5) {
         hasMovedSignificantly = true;
       }
-      snowman.setPosition(e.clientX - snowmanOffsetX, e.clientY - snowmanOffsetY);
+      draggedSnowman.setPosition(mx - dragOffsetX, my - dragOffsetY);
+      return;
+    }
+
+    if (isDraggingCompanion) {
+      const dist = Math.hypot(mx - dragStartX, my - dragStartY);
+      if (dist > 5) {
+        hasMovedSignificantly = true;
+      }
+      companion.setPosition(mx - dragOffsetX, my - dragOffsetY);
       return;
     }
 
     if (snowballBuilder.isBuilding) {
-      snowballBuilder.handleMouseMove(e.clientX, e.clientY);
+      snowballBuilder.handleMouseMove(mx, my);
       return;
     }
 
-    updateInteractiveHover(e.clientX, e.clientY);
+    if (decorationManager.isDraggingAny()) {
+      decorationManager.handleMouseMove(mx, my);
+      return;
+    }
+
+    decorationManager.handleMouseMove(mx, my);
+    updateInteractiveHover(mx, my);
   });
 
   window.addEventListener("mouseup", (e) => {
-    if (isDraggingSnowman) {
-      isDraggingSnowman = false;
-      if (!hasMovedSignificantly && snowman.containsPoint(e.clientX, e.clientY)) {
-        dressingRoom.toggle();
+    const mx = e.clientX;
+    const my = e.clientY;
+
+    if (draggedSnowman) {
+      if (eventManager.hasTrain() && eventManager.isTrainNear(mx, my)) {
+        eventManager.boardTrain("snowman");
+        draggedSnowman.isRidingTrain = true;
       }
-      updateInteractiveHover(e.clientX, e.clientY);
+
+      if (!hasMovedSignificantly && draggedSnowman.containsPoint(mx, my)) {
+        dressingRoom.openWith(draggedSnowman);
+      }
+      draggedSnowman.isDragging = false;
+      draggedSnowman = null;
+      updateInteractiveHover(mx, my);
+      return;
+    }
+
+    if (isDraggingCompanion) {
+      if (eventManager.hasTrain() && eventManager.isTrainNear(mx, my)) {
+        eventManager.boardTrain("companion");
+        companion.isRidingTrain = true;
+      }
+      companion.isDragging = false;
+      isDraggingCompanion = false;
+      updateInteractiveHover(mx, my);
       return;
     }
 
     if (snowballBuilder.isBuilding) {
       snowballBuilder.handleMouseUp();
-      updateInteractiveHover(e.clientX, e.clientY);
+      updateInteractiveHover(mx, my);
       return;
     }
 
     decorationManager.handleMouseUp();
-    updateInteractiveHover(e.clientX, e.clientY);
+    updateInteractiveHover(mx, my);
   });
 
   window.addEventListener("contextmenu", (e) => {
@@ -223,12 +329,35 @@ async function bootstrap(): Promise<void> {
   });
 
   snowEngine.onRenderEntities = (ctx: CanvasRenderingContext2D): void => {
-    snowman.update(taskbar);
+    for (const s of snowmen) {
+      s.update(taskbar);
+    }
+    companion.update(taskbar, openWindows);
     eventManager.update();
     decorationManager.update();
 
+    if (!eventManager.hasTrain()) {
+      for (const s of snowmen) {
+        if (s.isRidingTrain) {
+          s.isRidingTrain = false;
+          s.setPosition(s.x, taskbar.y);
+        }
+      }
+      if (companion.isRidingTrain) {
+        companion.isRidingTrain = false;
+        companion.setPosition(companion.x, taskbar.y);
+      }
+    }
+
     decorationManager.draw(ctx);
-    snowman.draw(ctx);
+    for (const s of snowmen) {
+      if (!s.isRidingTrain) {
+        s.draw(ctx);
+      }
+    }
+    if (!companion.isRidingTrain) {
+      companion.draw(ctx);
+    }
     eventManager.draw(ctx);
     snowballBuilder.draw(ctx);
   };
