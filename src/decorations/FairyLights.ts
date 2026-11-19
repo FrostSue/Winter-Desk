@@ -9,8 +9,10 @@ export interface LightHandle {
 export class FairyLights {
   public p1: LightHandle;
   public p2: LightHandle;
+  public pMid: LightHandle;
   public isDraggingP1 = false;
   public isDraggingP2 = false;
+  public isDraggingPMid = false;
   public isDraggingBody = false;
   public isHovered = false;
   public theme: LightColorTheme = "rainbow";
@@ -26,6 +28,7 @@ export class FairyLights {
   constructor(x1: number, y1: number, x2: number, y2: number, theme: LightColorTheme = "rainbow") {
     this.p1 = { x: x1, y: y1, radius: 6 };
     this.p2 = { x: x2, y: y2, radius: 6 };
+    this.pMid = { x: (x1 + x2) / 2, y: (y1 + y2) / 2 + 10, radius: 7 };
     this.theme = theme;
   }
 
@@ -33,10 +36,16 @@ export class FairyLights {
     this.theme = theme;
   }
 
+  public setSag(sagDepth: number): void {
+    this.pMid.x = (this.p1.x + this.p2.x) / 2;
+    this.pMid.y = (this.p1.y + this.p2.y) / 2 + sagDepth;
+  }
+
   public setHeight(newY: number): void {
     const dy = newY - this.p1.y;
     this.p1.y = newY;
     this.p2.y += dy;
+    this.pMid.y += dy;
   }
 
   public update(): void {
@@ -44,23 +53,32 @@ export class FairyLights {
   }
 
   public resize(newWidth: number): void {
+    const ratio = newWidth / (this.p2.x || 1);
     this.p1.x = 0;
     this.p2.x = newWidth;
+    this.pMid.x = this.pMid.x * ratio;
   }
 
-  public hitTest(px: number, py: number): "p1" | "p2" | "body" | null {
-    const d1 = Math.hypot(px - this.p1.x, py - this.p1.y);
-    if (d1 <= this.p1.radius + 12) return "p1";
+  public hitTest(px: number, py: number): "p1" | "p2" | "pMid" | "body" | null {
+    if (Math.hypot(px - this.pMid.x, py - this.pMid.y) <= this.pMid.radius + 12) {
+      return "pMid";
+    }
 
-    const d2 = Math.hypot(px - this.p2.x, py - this.p2.y);
-    if (d2 <= this.p2.radius + 12) return "p2";
+    if (Math.hypot(px - this.p1.x, py - this.p1.y) <= this.p1.radius + 12) {
+      return "p1";
+    }
+
+    if (Math.hypot(px - this.p2.x, py - this.p2.y) <= this.p2.radius + 12) {
+      return "p2";
+    }
 
     const minX = Math.min(this.p1.x, this.p2.x);
     const maxX = Math.max(this.p1.x, this.p2.x);
     if (px >= minX && px <= maxX) {
       const t = (px - this.p1.x) / (this.p2.x - this.p1.x || 1);
-      const baseY = this.p1.y + (this.p2.y - this.p1.y) * t;
-      if (Math.abs(py - baseY) <= 24) {
+      const ctrlY = 2 * this.pMid.y - 0.5 * this.p1.y - 0.5 * this.p2.y;
+      const wireY = (1 - t) * (1 - t) * this.p1.y + 2 * (1 - t) * t * ctrlY + t * t * this.p2.y;
+      if (Math.abs(py - wireY) <= 20) {
         return "body";
       }
     }
@@ -69,15 +87,15 @@ export class FairyLights {
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
-    const dx = this.p2.x - this.p1.x;
-    const dy = this.p2.y - this.p1.y;
-    const totalDistance = Math.hypot(dx, dy);
+    const totalDistance = Math.hypot(this.p2.x - this.p1.x, this.p2.y - this.p1.y);
     if (totalDistance < 20) return;
 
-    const scallopSpan = 110;
+    const scallopSpan = 95;
     const scallopCount = Math.max(1, Math.round(totalDistance / scallopSpan));
-    const sagHeight = 8;
     const colors = this.colorPalettes[this.theme] || this.colorPalettes.rainbow;
+
+    const ctrlX = 2 * this.pMid.x - 0.5 * this.p1.x - 0.5 * this.p2.x;
+    const ctrlY = 2 * this.pMid.y - 0.5 * this.p1.y - 0.5 * this.p2.y;
 
     ctx.save();
     let bulbIndex = 0;
@@ -86,13 +104,13 @@ export class FairyLights {
       const tStart = s / scallopCount;
       const tEnd = (s + 1) / scallopCount;
 
-      const sx1 = this.p1.x + dx * tStart;
-      const sy1 = this.p1.y + dy * tStart;
-      const sx2 = this.p1.x + dx * tEnd;
-      const sy2 = this.p1.y + dy * tEnd;
+      const sx1 = (1 - tStart) * (1 - tStart) * this.p1.x + 2 * (1 - tStart) * tStart * ctrlX + tStart * tStart * this.p2.x;
+      const sy1 = (1 - tStart) * (1 - tStart) * this.p1.y + 2 * (1 - tStart) * tStart * ctrlY + tStart * tStart * this.p2.y;
+      const sx2 = (1 - tEnd) * (1 - tEnd) * this.p1.x + 2 * (1 - tEnd) * tEnd * ctrlX + tEnd * tEnd * this.p2.x;
+      const sy2 = (1 - tEnd) * (1 - tEnd) * this.p1.y + 2 * (1 - tEnd) * tEnd * ctrlY + tEnd * tEnd * this.p2.y;
 
       const midX = (sx1 + sx2) / 2;
-      const midY = (sy1 + sy2) / 2 + sagHeight;
+      const midY = (sy1 + sy2) / 2 + 5;
 
       ctx.beginPath();
       ctx.moveTo(sx1, sy1);
@@ -115,9 +133,10 @@ export class FairyLights {
       }
     }
 
-    if (this.isHovered || this.isDraggingP1 || this.isDraggingP2 || this.isDraggingBody) {
-      this.drawHandle(ctx, this.p1, this.isDraggingP1);
-      this.drawHandle(ctx, this.p2, this.isDraggingP2);
+    if (this.isHovered || this.isDraggingP1 || this.isDraggingP2 || this.isDraggingPMid || this.isDraggingBody) {
+      this.drawHandle(ctx, this.p1, this.isDraggingP1, "circle");
+      this.drawHandle(ctx, this.p2, this.isDraggingP2, "circle");
+      this.drawHandle(ctx, this.pMid, this.isDraggingPMid, "diamond");
     }
 
     ctx.restore();
@@ -150,13 +169,27 @@ export class FairyLights {
     ctx.fill();
   }
 
-  private drawHandle(ctx: CanvasRenderingContext2D, handle: LightHandle, isActive: boolean): void {
-    ctx.beginPath();
-    ctx.arc(handle.x, handle.y, handle.radius, 0, Math.PI * 2);
-    ctx.fillStyle = isActive ? "#4fc3f7" : "rgba(255, 255, 255, 0.85)";
-    ctx.strokeStyle = "#37474f";
-    ctx.lineWidth = 1.2;
+  private drawHandle(ctx: CanvasRenderingContext2D, handle: LightHandle, isActive: boolean, shape: "circle" | "diamond"): void {
+    ctx.save();
+    ctx.translate(handle.x, handle.y);
+
+    if (shape === "circle") {
+      ctx.beginPath();
+      ctx.arc(0, 0, handle.radius, 0, Math.PI * 2);
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(0, -handle.radius - 2);
+      ctx.lineTo(handle.radius + 2, 0);
+      ctx.lineTo(0, handle.radius + 2);
+      ctx.lineTo(-handle.radius - 2, 0);
+      ctx.closePath();
+    }
+
+    ctx.fillStyle = isActive ? "#ff9800" : "rgba(255, 255, 255, 0.9)";
+    ctx.strokeStyle = "#263238";
+    ctx.lineWidth = 1.5;
     ctx.fill();
     ctx.stroke();
+    ctx.restore();
   }
 }
