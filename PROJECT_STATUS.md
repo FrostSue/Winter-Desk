@@ -27,7 +27,7 @@ WinterDesk is an open-source, background-running Windows 10 and 11 desktop compa
 | **Floating Quick-Deck Trigger** | `src/main.ts` | Complete | Subtle on-screen pill button for instant access to the decoration palette without opening system tray. |
 | **Adjustable Fairy Lights** | `src/decorations/FairyLights.ts` | Complete | Three-point Bezier garland with draggable left/right handles, diamond sag control handle, height positioning, color themes, and glowing bulbs. |
 | **Festive Ornaments** | `src/decorations/Ornament.ts`, `DecorationManager.ts` | Complete | 16 festive items with pendulum physics, drag & drop placement anywhere, and right-click removal. |
-| **Snowplough Vehicle** | `src/events/EventManager.ts` | Complete | Drives across taskbar clearing accumulated snowbanks with snow spray. |
+| **Snowplough Crawler (Piste-Basher)** | `src/events/EventManager.ts` | Complete | Authentic yellow crawler snowcat with caterpillar tracks, 4 rotating bogie wheels, roof beacon, and angled plow blade driving across taskbar clearing accumulated snow with spray. |
 | **Gift Express Train with Boarding**| `src/events/EventManager.ts` | Complete | Locomotive with passenger carriage; snowman and companion can board the train and ride across the desktop. |
 | **Snowball Fight Duels** | `src/events/EventManager.ts` | Complete | Two snowmen spawn and lob snowballs with gravity arcs; stoppable via click, right-click, tray, or 12-round auto-finish. |
 | **Santa & Sleigh** | `src/events/EventManager.ts` | Complete | Flying sleigh across the sky with stardust particle trail. |
