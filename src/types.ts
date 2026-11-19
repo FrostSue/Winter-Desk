@@ -30,7 +30,32 @@ export interface SnowmanConfig {
   accessory: string;
 }
 
-export type ScreenEvent = "snowplough" | "snowball-fight" | "stop-snowball-fight" | "santa" | "train";
+export type OrnamentType =
+  | "red-bauble"
+  | "gold-bauble"
+  | "blue-bauble"
+  | "purple-bauble"
+  | "wreath"
+  | "stocking"
+  | "tree"
+  | "candy-cane"
+  | "gingerbread"
+  | "bells"
+  | "ribbon"
+  | "star"
+  | "candle"
+  | "snowflake-decor"
+  | "gift-box";
+
+export type LightColorTheme = "rainbow" | "warm-white" | "ice-blue" | "candy";
+
+export type ScreenEvent =
+  | "snowplough"
+  | "snowball-fight"
+  | "stop-snowball-fight"
+  | "santa"
+  | "train"
+  | "summon-buddy";
 
 export interface WinterDeskAPI {
   getTaskbarBounds: () => Promise<TaskbarBounds>;
