@@ -321,11 +321,11 @@ async function bootstrap(): Promise<void> {
     if (snowGesture && snowGesture.isWindowSnow && !snowGesture.isFlinging) {
       const dy = my - snowGesture.startY;
       const dx = mx - snowGesture.startX;
-      if (dy > 14 && Math.abs(dy) > Math.abs(dx) * 0.8) {
+      if ((dy > 8 && Math.hypot(dx, dy) > 12) || (Math.hypot(dx, dy) > 16 && dy > 4)) {
         snowGesture.isFlinging = true;
         snowballBuilder.activeBall = null;
         snowballBuilder.isBuilding = false;
-        snowEngine.flingWindowSnow(snowGesture.window!, mx, my, dx * 0.6, Math.max(4.0, dy * 0.45));
+        snowEngine.flingWindowSnow(snowGesture.window!, mx, my, dx * 0.7, Math.max(3.5, dy * 0.55));
         snowGesture = null;
         updateInteractiveHover(mx, my);
         return;
