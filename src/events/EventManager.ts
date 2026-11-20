@@ -351,9 +351,6 @@ export class EventManager {
     }
 
     if (this.fighters.length === 2) {
-      const leftFighter = this.fighters[0];
-      const rightFighter = this.fighters[1];
-
       if (this.battleEndingTimer > 0) {
         this.battleEndingTimer--;
         if (this.battleEndingTimer === 0) {
