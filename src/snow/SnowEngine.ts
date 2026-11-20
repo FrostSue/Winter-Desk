@@ -249,29 +249,40 @@ export class SnowEngine {
     startX: number,
     startY: number,
     baseVx?: number,
-    baseVy?: number,
-    count = 35
-  ): void {
+    baseVy?: number
+  ): boolean {
     const key = this.getWindowKey(win);
     const acc = this.windowAccumulators.get(key);
-    if (acc) {
-      acc.clearRange(startX - win.x - 24, startX - win.x + 24, 2.8);
+    if (!acc) return false;
+
+    const localX = startX - win.x;
+    const depthAtPoint = acc.getHeight(localX);
+    if (depthAtPoint < 1.0) {
+      return false;
+    }
+
+    const scoopAmount = Math.min(depthAtPoint, 4.0);
+    const cleared = acc.clearRange(localX - 20, localX + 20, scoopAmount);
+    if (cleared < 0.6) {
+      return false;
     }
 
     const vxCenter = baseVx !== undefined ? baseVx : 0;
     const vyCenter = baseVy !== undefined ? baseVy : 4.5;
+    const count = Math.max(5, Math.min(22, Math.round(cleared * 1.5)));
 
     for (let k = 0; k < count; k++) {
       this.tumblingClumps.push({
-        x: startX + (Math.random() * 40 - 20),
-        y: startY + (Math.random() * 8 - 4),
-        vx: vxCenter + (Math.random() - 0.5) * 3.5 + this.config.wind * 0.8,
-        vy: vyCenter + (Math.random() - 0.5) * 2.8,
-        radius: 2.5 + Math.random() * 3.8,
+        x: startX + (Math.random() * 28 - 14),
+        y: startY + (Math.random() * 6 - 3),
+        vx: vxCenter + (Math.random() - 0.5) * 3.0 + this.config.wind * 0.4,
+        vy: vyCenter + (Math.random() - 0.5) * 2.2,
+        radius: 2.0 + Math.random() * 2.6,
         alpha: 0.95,
         sourceWindowKey: key
       });
     }
+    return true;
   }
 
   public shovelWindowSnowAt(px: number, py: number): boolean {
@@ -427,7 +438,7 @@ export class SnowEngine {
 
           const targetAcc = this.windowAccumulators.get(key);
           if (targetAcc) {
-            targetAcc.deposit(clump.x - win.x, clump.radius * 0.45);
+            targetAcc.deposit(clump.x - win.x, clump.radius * 0.16);
           }
           this.tumblingClumps.splice(k, 1);
           hitWindow = true;
@@ -436,7 +447,7 @@ export class SnowEngine {
       }
 
       if (!hitWindow && clump.y >= taskbarTop) {
-        this.accumulator.deposit(clump.x, 0.5);
+        this.accumulator.deposit(clump.x, 0.22);
         this.tumblingClumps.splice(k, 1);
       }
     }
