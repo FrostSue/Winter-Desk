@@ -8,6 +8,8 @@ interface SnowploughVehicle {
   width: number;
   height: number;
   wheelRotation: number;
+  collectedSnow: number;
+  spray: { x: number; y: number; vx: number; vy: number; radius: number; alpha: number }[];
 }
 
 interface SnowballProjectile {
@@ -16,8 +18,29 @@ interface SnowballProjectile {
   vx: number;
   vy: number;
   gravity: number;
-  targetX: number;
+  targetSide: "left" | "right";
   radius: number;
+  trail: { x: number; y: number; alpha: number; size: number }[];
+}
+
+interface BattleParticle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  alpha: number;
+  color: string;
+}
+
+interface FloatingText {
+  x: number;
+  y: number;
+  text: string;
+  color: string;
+  alpha: number;
+  scale: number;
+  vy: number;
 }
 
 interface FighterSnowman {
@@ -25,7 +48,13 @@ interface FighterSnowman {
   y: number;
   side: "left" | "right";
   health: number;
+  maxHealth: number;
   throwCooldown: number;
+  throwPhase: number;
+  crouchProgress: number;
+  hitShake: number;
+  isWinner: boolean;
+  isDefeated: boolean;
   speechText: string | null;
   speechTimer: number;
 }
@@ -51,6 +80,8 @@ export class EventManager {
   private activePlough: SnowploughVehicle | null = null;
   private fighters: FighterSnowman[] = [];
   private snowballs: SnowballProjectile[] = [];
+  private battleParticles: BattleParticle[] = [];
+  private floatingTexts: FloatingText[] = [];
   private activeSanta: SantaFlyer | null = null;
   private activeTrain: GiftTrainVehicle | null = null;
   private accumulator: SnowAccumulator;
@@ -88,15 +119,17 @@ export class EventManager {
   public stopSnowballFight(): void {
     this.fighters = [];
     this.snowballs = [];
+    this.battleParticles = [];
+    this.floatingTexts = [];
     this.battleRounds = 0;
     this.battleEndingTimer = 0;
   }
 
   public containsFighter(px: number, py: number): boolean {
     for (const fighter of this.fighters) {
-      const left = fighter.x - 30;
-      const right = fighter.x + 30;
-      const top = fighter.y - 70;
+      const left = fighter.x - 36;
+      const right = fighter.x + 36;
+      const top = fighter.y - 75;
       const bottom = fighter.y + 10;
       if (px >= left && px <= right && py >= top && py <= bottom) {
         return true;
@@ -145,20 +178,24 @@ export class EventManager {
 
   private spawnSnowplough(): void {
     this.activePlough = {
-      x: -120,
+      x: -140,
       y: this.taskbar.y,
       speed: 3.2,
       width: 80,
       height: 38,
-      wheelRotation: 0
+      wheelRotation: 0,
+      collectedSnow: 0,
+      spray: []
     };
   }
 
   private spawnSnowballFight(): void {
     this.battleRounds = 0;
     this.battleEndingTimer = 0;
-    const leftX = Math.max(120, window.innerWidth * 0.2);
-    const rightX = Math.min(window.innerWidth - 120, window.innerWidth * 0.8);
+    this.battleParticles = [];
+    this.floatingTexts = [];
+    const leftX = Math.max(140, window.innerWidth * 0.22);
+    const rightX = Math.min(window.innerWidth - 140, window.innerWidth * 0.78);
 
     this.fighters = [
       {
@@ -166,8 +203,14 @@ export class EventManager {
         y: this.taskbar.y,
         side: "left",
         health: 3,
-        throwCooldown: 40,
-        speechText: "PEACE!",
+        maxHealth: 3,
+        throwCooldown: 50,
+        throwPhase: 0,
+        crouchProgress: 0,
+        hitShake: 0,
+        isWinner: false,
+        isDefeated: false,
+        speechText: "TEAM FROST READY!",
         speechTimer: 100
       },
       {
@@ -175,8 +218,14 @@ export class EventManager {
         y: this.taskbar.y,
         side: "right",
         health: 3,
-        throwCooldown: 80,
-        speechText: "SNOWBALL!",
+        maxHealth: 3,
+        throwCooldown: 100,
+        throwPhase: 0,
+        crouchProgress: 0,
+        hitShake: 0,
+        isWinner: false,
+        isDefeated: false,
+        speechText: "TEAM EMBER READY!",
         speechTimer: 100
       }
     ];
@@ -184,10 +233,10 @@ export class EventManager {
 
   private spawnSanta(): void {
     this.activeSanta = {
-      x: -150,
+      x: -220,
       y: 90,
       vx: 4.5,
-      vy: 0.2,
+      vy: 0.18,
       trail: []
     };
   }
@@ -208,9 +257,38 @@ export class EventManager {
       this.activePlough.x += this.activePlough.speed;
       this.activePlough.wheelRotation += 0.12;
 
-      this.accumulator.clearRange(this.activePlough.x - 20, this.activePlough.x + 80);
+      const cleared = this.accumulator.clearRangeResidual(
+        this.activePlough.x - 10,
+        this.activePlough.x + 65,
+        2.2,
+        2.6
+      );
+      this.activePlough.collectedSnow = Math.min(42, this.activePlough.collectedSnow + cleared * 0.14);
 
-      if (this.activePlough.x > window.innerWidth + 150) {
+      if (cleared > 0.1 && Math.random() < 0.85) {
+        this.activePlough.spray.push({
+          x: this.activePlough.x + 56 + Math.random() * 8,
+          y: this.activePlough.y - 4 - Math.random() * (this.activePlough.collectedSnow * 0.35 + 8),
+          vx: 1.4 + Math.random() * 2.8,
+          vy: -2.0 - Math.random() * 2.6,
+          radius: 1.6 + Math.random() * 2.4,
+          alpha: 0.95
+        });
+      }
+
+      for (let i = this.activePlough.spray.length - 1; i >= 0; i--) {
+        const p = this.activePlough.spray[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.28;
+        p.vx *= 0.97;
+        p.alpha -= 0.035;
+        if (p.alpha <= 0 || p.y >= this.taskbar.y) {
+          this.activePlough.spray.splice(i, 1);
+        }
+      }
+
+      if (this.activePlough.x > window.innerWidth + 180) {
         this.activePlough = null;
       }
     }
@@ -273,6 +351,9 @@ export class EventManager {
     }
 
     if (this.fighters.length === 2) {
+      const leftFighter = this.fighters[0];
+      const rightFighter = this.fighters[1];
+
       if (this.battleEndingTimer > 0) {
         this.battleEndingTimer--;
         if (this.battleEndingTimer === 0) {
@@ -287,10 +368,36 @@ export class EventManager {
             }
           }
 
-          fighter.throwCooldown--;
-          if (fighter.throwCooldown <= 0) {
-            fighter.throwCooldown = 90 + Math.floor(Math.random() * 40);
-            this.throwSnowball(fighter);
+          if (fighter.hitShake > 0) {
+            fighter.hitShake--;
+          }
+
+          if (fighter.throwPhase > 0) {
+            fighter.throwPhase++;
+            if (fighter.throwPhase === 8) {
+              this.launchSnowball(fighter);
+            } else if (fighter.throwPhase > 16) {
+              fighter.throwPhase = 0;
+            }
+          }
+
+          if (!fighter.isDefeated && !fighter.isWinner && fighter.throwPhase === 0) {
+            fighter.throwCooldown--;
+            if (fighter.throwCooldown <= 0) {
+              fighter.throwCooldown = 80 + Math.floor(Math.random() * 45);
+              fighter.throwPhase = 1;
+            }
+          }
+
+          const incomingBall = this.snowballs.find((b) => b.targetSide === fighter.side);
+          if (incomingBall && Math.abs(incomingBall.x - fighter.x) < 140 && Math.abs(incomingBall.x - fighter.x) > 35) {
+            if (fighter.crouchProgress < 1.0) {
+              fighter.crouchProgress = Math.min(1.0, fighter.crouchProgress + 0.18);
+            }
+          } else {
+            if (fighter.crouchProgress > 0) {
+              fighter.crouchProgress = Math.max(0, fighter.crouchProgress - 0.12);
+            }
           }
         }
       }
@@ -302,43 +409,140 @@ export class EventManager {
       ball.y += ball.vy;
       ball.vy += ball.gravity;
 
+      if (Math.random() < 0.7) {
+        ball.trail.push({
+          x: ball.x,
+          y: ball.y,
+          alpha: 0.8,
+          size: 1.5 + Math.random() * 2.2
+        });
+      }
+
+      for (let t = ball.trail.length - 1; t >= 0; t--) {
+        const tr = ball.trail[t];
+        tr.alpha -= 0.05;
+        if (tr.alpha <= 0) {
+          ball.trail.splice(t, 1);
+        }
+      }
+
+      const targetFighter = this.fighters.find((f) => f.side === ball.targetSide);
+      if (targetFighter && !targetFighter.isDefeated) {
+        const bodyHeight = 55 * (1.0 - targetFighter.crouchProgress * 0.45);
+        const targetCenterY = targetFighter.y - bodyHeight * 0.55;
+        const dist = Math.hypot(ball.x - targetFighter.x, ball.y - targetCenterY);
+
+        if (dist < 24) {
+          if (targetFighter.crouchProgress > 0.75 && ball.y < targetFighter.y - bodyHeight) {
+            this.addFloatingText(targetFighter.x, targetFighter.y - 65, "DODGED!", "#ffeb3b");
+          } else {
+            targetFighter.health = Math.max(0, targetFighter.health - 1);
+            targetFighter.hitShake = 22;
+            this.addSnowSplatter(ball.x, ball.y, 14);
+            const exclamations = ["SPLAT!", "BAM!", "POW!", "OOF!"];
+            const text = exclamations[Math.floor(Math.random() * exclamations.length)];
+            this.addFloatingText(targetFighter.x, targetFighter.y - 65, text, "#ff5252");
+
+            if (targetFighter.health <= 0) {
+              targetFighter.isDefeated = true;
+              const winner = this.fighters.find((f) => f !== targetFighter);
+              if (winner) {
+                winner.isWinner = true;
+                winner.speechText = "VICTORY! 🎉";
+                winner.speechTimer = 220;
+              }
+              targetFighter.speechText = "GOOD GAME! 💫";
+              targetFighter.speechTimer = 220;
+              this.battleEndingTimer = 220;
+            }
+          }
+          this.snowballs.splice(i, 1);
+          continue;
+        }
+      }
+
       if (ball.y >= this.taskbar.y) {
-        this.accumulator.deposit(ball.x, 0.8);
+        this.addSnowSplatter(ball.x, this.taskbar.y - 2, 8);
+        this.accumulator.deposit(ball.x, 0.6);
         this.snowballs.splice(i, 1);
+      }
+    }
+
+    for (let i = this.battleParticles.length - 1; i >= 0; i--) {
+      const p = this.battleParticles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.32;
+      p.vx *= 0.98;
+      p.alpha -= 0.03;
+      if (p.alpha <= 0 || p.y >= this.taskbar.y) {
+        this.battleParticles.splice(i, 1);
+      }
+    }
+
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      const ft = this.floatingTexts[i];
+      ft.y += ft.vy;
+      ft.vy *= 0.95;
+      ft.alpha -= 0.02;
+      ft.scale = Math.min(1.2, ft.scale + 0.03);
+      if (ft.alpha <= 0) {
+        this.floatingTexts.splice(i, 1);
       }
     }
   }
 
-  private throwSnowball(fighter: FighterSnowman): void {
+  private launchSnowball(fighter: FighterSnowman): void {
     const target = this.fighters.find((f) => f !== fighter);
     if (!target) return;
 
     const dx = target.x - fighter.x;
-    const duration = 45;
+    const duration = 40 + Math.floor(Math.random() * 8);
     const vx = dx / duration;
-    const vy = -12;
+    const vy = -12.5 - Math.random() * 2.0;
 
     this.snowballs.push({
-      x: fighter.x,
-      y: fighter.y - 40,
+      x: fighter.x + (fighter.side === "left" ? 18 : -18),
+      y: fighter.y - 38,
       vx,
       vy,
-      gravity: 0.5,
-      targetX: target.x,
-      radius: 5
+      gravity: 0.52,
+      targetSide: target.side,
+      radius: 5.5,
+      trail: []
     });
 
     this.battleRounds++;
-    if (this.battleRounds >= 12) {
-      for (const f of this.fighters) {
-        f.speechText = "GOOD GAME!";
-        f.speechTimer = 180;
-      }
-      this.battleEndingTimer = 180;
-    } else {
-      fighter.speechText = Math.random() > 0.5 ? "CATCH!" : "TAKE THAT!";
-      fighter.speechTimer = 60;
+    fighter.speechText = Math.random() > 0.5 ? "CATCH!" : "TAKE THIS!";
+    fighter.speechTimer = 50;
+  }
+
+  private addSnowSplatter(x: number, y: number, count = 12): void {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 1.5 + Math.random() * 4.2;
+      this.battleParticles.push({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed - 1.5,
+        radius: 1.5 + Math.random() * 2.2,
+        alpha: 0.95,
+        color: "#ffffff"
+      });
     }
+  }
+
+  private addFloatingText(x: number, y: number, text: string, color: string): void {
+    this.floatingTexts.push({
+      x,
+      y,
+      text,
+      color,
+      alpha: 1.0,
+      scale: 0.8,
+      vy: -1.6
+    });
   }
 
   public draw(ctx: CanvasRenderingContext2D): void {
@@ -359,19 +563,55 @@ export class EventManager {
     }
 
     for (const ball of this.snowballs) {
+      for (const t of ball.trail) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${t.alpha * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(t.x, t.y, t.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "rgba(180, 220, 255, 0.7)";
-      ctx.shadowBlur = 4;
+      ctx.shadowColor = "rgba(180, 220, 255, 0.8)";
+      ctx.shadowBlur = 5;
       ctx.fill();
       ctx.shadowBlur = 0;
+    }
+
+    for (const p of this.battleParticles) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${p.alpha})`;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    for (const ft of this.floatingTexts) {
+      ctx.save();
+      ctx.translate(ft.x, ft.y);
+      ctx.scale(ft.scale, ft.scale);
+      ctx.globalAlpha = Math.max(0, ft.alpha);
+      ctx.font = "900 13px sans-serif";
+      ctx.textAlign = "center";
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.75)";
+      ctx.lineWidth = 3;
+      ctx.strokeText(ft.text, 0, 0);
+      ctx.fillStyle = ft.color;
+      ctx.fillText(ft.text, 0, 0);
+      ctx.restore();
     }
   }
 
   private drawSnowplough(ctx: CanvasRenderingContext2D, plough: SnowploughVehicle): void {
     ctx.save();
     ctx.translate(plough.x, plough.y);
+
+    for (const sp of plough.spray) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${sp.alpha})`;
+      ctx.beginPath();
+      ctx.arc(sp.x - plough.x, sp.y - plough.y, sp.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.fillStyle = "#fbc02d";
     ctx.beginPath();
@@ -420,17 +660,21 @@ export class EventManager {
     ctx.lineWidth = 1;
     ctx.stroke();
 
-    ctx.fillStyle = "#ffffff";
-    ctx.beginPath();
-    ctx.arc(58, -4, 5, 0, Math.PI * 2);
-    ctx.arc(54, -9, 4, 0, Math.PI * 2);
-    ctx.fill();
+    const moundH = Math.min(22, 5 + plough.collectedSnow * 0.45);
+    const moundGrad = ctx.createLinearGradient(48, -moundH, 58, 0);
+    moundGrad.addColorStop(0, "#ffffff");
+    moundGrad.addColorStop(1, "#d0e4f7");
 
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.arc(56 + Math.random() * 8, -6 - Math.random() * 16, 1.8 + Math.random() * 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
+    ctx.fillStyle = moundGrad;
+    ctx.beginPath();
+    ctx.moveTo(50, 0);
+    ctx.quadraticCurveTo(58 + moundH * 0.25, -moundH * 0.35, 56 + moundH * 0.15, -moundH);
+    ctx.quadraticCurveTo(50, -moundH * 0.75, 46, -14);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
 
     ctx.restore();
   }
@@ -626,48 +870,130 @@ export class EventManager {
 
   private drawFighter(ctx: CanvasRenderingContext2D, fighter: FighterSnowman): void {
     ctx.save();
-    ctx.translate(fighter.x, fighter.y);
+
+    const shakeX = fighter.hitShake > 0 ? (Math.random() - 0.5) * 5 : 0;
+    const victoryHop = fighter.isWinner ? Math.abs(Math.sin(Date.now() * 0.008)) * 12 : 0;
+    ctx.translate(fighter.x + shakeX, fighter.y - victoryHop);
+
+    const isLeft = fighter.side === "left";
+    const teamColor = isLeft ? "#1976d2" : "#d32f2f";
+    const accentColor = isLeft ? "#90caf9" : "#ffcdd2";
+
+    const squashY = 1.0 - fighter.crouchProgress * 0.35;
+    const stretchX = 1.0 + fighter.crouchProgress * 0.25;
+
+    ctx.scale(stretchX, squashY);
 
     ctx.beginPath();
     ctx.arc(0, -18, 18, 0, Math.PI * 2);
     ctx.fillStyle = "#ffffff";
-    ctx.shadowColor = "rgba(180, 210, 240, 0.4)";
+    ctx.shadowColor = "rgba(180, 210, 240, 0.45)";
     ctx.shadowBlur = 4;
     ctx.fill();
+    ctx.shadowBlur = 0;
 
     ctx.beginPath();
     ctx.arc(0, -42, 12, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
     ctx.fill();
 
-    ctx.fillStyle = fighter.side === "left" ? "#1976d2" : "#d32f2f";
+    ctx.fillStyle = teamColor;
     ctx.beginPath();
-    ctx.roundRect(-10, -56, 20, 8, [6, 6, 0, 0]);
+    ctx.roundRect(-10, -55, 20, 9, [7, 7, 1, 1]);
+    ctx.fill();
+
+    ctx.fillStyle = accentColor;
+    ctx.beginPath();
+    ctx.arc(0, -57, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = teamColor;
+    ctx.beginPath();
+    ctx.roundRect(-9, -32, 18, 5, 2.5);
     ctx.fill();
 
     ctx.fillStyle = "#222222";
-    ctx.beginPath();
-    ctx.arc(-3, -43, 1.5, 0, Math.PI * 2);
-    ctx.arc(3, -43, 1.5, 0, Math.PI * 2);
-    ctx.fill();
+    if (fighter.isDefeated) {
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#333333";
+      ctx.beginPath();
+      ctx.moveTo(-5, -45);
+      ctx.lineTo(-1, -41);
+      ctx.moveTo(-1, -45);
+      ctx.lineTo(-5, -41);
+      ctx.moveTo(1, -45);
+      ctx.lineTo(5, -41);
+      ctx.moveTo(5, -45);
+      ctx.lineTo(1, -41);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(-3, -43, 1.4, 0, Math.PI * 2);
+      ctx.arc(3, -43, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     ctx.fillStyle = "#ff6f00";
     ctx.beginPath();
     ctx.moveTo(0, -41);
-    ctx.lineTo(fighter.side === "left" ? 6 : -6, -40);
+    ctx.lineTo(isLeft ? 6 : -6, -40);
     ctx.lineTo(0, -39);
     ctx.closePath();
     ctx.fill();
 
+    ctx.strokeStyle = "#5d4037";
+    ctx.lineWidth = 2.5;
+    ctx.lineCap = "round";
+
+    const throwAngle = fighter.throwPhase > 0 ? (fighter.throwPhase < 8 ? -0.7 : 0.8) : 0;
+
+    ctx.beginPath();
+    if (isLeft) {
+      ctx.moveTo(-12, -26);
+      ctx.lineTo(-24, -20);
+      ctx.moveTo(12, -26);
+      const rightArmAngle = 0.2 + throwAngle;
+      ctx.lineTo(12 + Math.cos(rightArmAngle) * 16, -26 + Math.sin(rightArmAngle) * 16);
+    } else {
+      ctx.moveTo(12, -26);
+      ctx.lineTo(24, -20);
+      ctx.moveTo(-12, -26);
+      const leftArmAngle = Math.PI - 0.2 - throwAngle;
+      ctx.lineTo(-12 + Math.cos(leftArmAngle) * 16, -26 + Math.sin(leftArmAngle) * 16);
+    }
+    ctx.stroke();
+
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(fighter.x + shakeX, fighter.y - victoryHop);
+
+    const heartSpacing = 12;
+    const startHeartX = -((fighter.maxHealth - 1) * heartSpacing) / 2;
+    const heartY = -68 - (fighter.isWinner ? 8 : 0);
+
+    for (let h = 0; h < fighter.maxHealth; h++) {
+      const hx = startHeartX + h * heartSpacing;
+      const isFilled = h < fighter.health;
+      ctx.font = "10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(isFilled ? "❤️" : "🤍", hx, heartY);
+    }
+
     if (fighter.speechText) {
       ctx.fillStyle = "rgba(255, 255, 255, 0.95)";
       ctx.beginPath();
-      ctx.roundRect(-30, -82, 60, 20, 6);
+      ctx.roundRect(-45, heartY - 24, 90, 20, 6);
       ctx.fill();
 
+      ctx.strokeStyle = teamColor;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
       ctx.fillStyle = "#263238";
-      ctx.font = "bold 10px sans-serif";
+      ctx.font = "bold 9px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(fighter.speechText, 0, -68);
+      ctx.fillText(fighter.speechText, 0, heartY - 11);
     }
 
     ctx.restore();
