@@ -25,6 +25,7 @@ export class SnowballBuilder {
   private snowEngine: SnowEngine;
   private accumulator: SnowAccumulator;
   private taskbar: TaskbarBounds;
+  private windows: WindowBounds[] = [];
   public onSnowmanCreated?: (snowman: Snowman) => void;
 
   constructor(snowEngine: SnowEngine, taskbar: TaskbarBounds) {
@@ -124,20 +125,27 @@ export class SnowballBuilder {
     this.activeBall.y = y;
 
     if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
-      const winSnow = this.snowEngine.getWindowSnowAt(x, y);
-      if (winSnow && winSnow.depth >= 0.4) {
-        this.snowEngine.consumeWindowSnow(winSnow.window, x, 0.1);
+      let winSnow = this.snowEngine.getWindowSnowAt(x, y);
+      if (!winSnow && this.activeBall.attachedWindowId) {
+        const found = this.windows.find((w) => w.id === this.activeBall!.attachedWindowId);
+        if (found) {
+          const depth = this.snowEngine.getWindowSnowAt(x, found.y)?.depth || 4;
+          winSnow = { window: found, depth };
+        }
+      }
+      if (winSnow) {
+        this.snowEngine.consumeWindowSnow(winSnow.window, x, 1.6);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
-          this.activeBall.radius + dist * 0.06
+          this.activeBall.radius + dist * 0.08
         );
       } else {
         const availableSnow = this.accumulator.getSnowHeight(x);
-        if (availableSnow >= 0.8) {
-          this.accumulator.clearRange(x - 14, x + 14);
+        if (availableSnow >= 0.6) {
+          this.accumulator.clearRange(x - 16, x + 16);
           this.activeBall.radius = Math.min(
             this.activeBall.targetRadius,
-            this.activeBall.radius + dist * 0.05
+            this.activeBall.radius + dist * 0.07
           );
         }
       }
@@ -258,6 +266,7 @@ export class SnowballBuilder {
   }
 
   public updateWindows(windows: WindowBounds[]): void {
+    this.windows = windows;
     for (const ball of this.restingBalls) {
       if (ball.attachedWindowId && !ball.isFalling) {
         const win = windows.find((w) => w.id === ball.attachedWindowId);
