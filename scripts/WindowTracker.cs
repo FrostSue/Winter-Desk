@@ -36,13 +36,30 @@ namespace WindowTracker {
         [DllImport("user32.dll", SetLastError = true)]
         static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+        [DllImport("dwmapi.dll")]
+        static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+        [DllImport("dwmapi.dll")]
+        static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
+        [DllImport("user32.dll")]
+        static extern bool SetProcessDPIAware();
+
         [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
         static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
         [DllImport("user32.dll", CharSet = CharSet.Auto, SetLastError = true)]
         static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
 
+        const int DWMWA_EXTENDED_FRAME_BOUNDS = 9;
+        const int DWMWA_CLOAKED = 14;
+
         static void Main(string[] args) {
+            try {
+                SetProcessDPIAware();
+            } catch {
+            }
+
             IntPtr hwinsta = OpenWindowStation("winsta0", false, 0x037F);
             if (hwinsta != IntPtr.Zero) SetProcessWindowStation(hwinsta);
             IntPtr hdesk = OpenDesktop("default", 0, false, 0x01FF);
@@ -55,6 +72,12 @@ namespace WindowTracker {
 
                 EnumDesktopWindows(hdesk, (hWnd, lParam) => {
                     if (IsWindowVisible(hWnd) && !IsIconic(hWnd)) {
+                        int cloaked = 0;
+                        int cloakedRes = DwmGetWindowAttribute(hWnd, DWMWA_CLOAKED, out cloaked, sizeof(int));
+                        if (cloakedRes == 0 && cloaked != 0) {
+                            return true;
+                        }
+
                         int exStyle = GetWindowLong(hWnd, -20);
                         if ((exStyle & 0x80) == 0) {
                             var sb = new StringBuilder(256);
@@ -62,7 +85,10 @@ namespace WindowTracker {
                             string title = sb.ToString();
                             if (!string.IsNullOrWhiteSpace(title) && title != "Program Manager" && title != "WinterDesk") {
                                 RECT r;
-                                if (GetWindowRect(hWnd, out r)) {
+                                int dwmRes = DwmGetWindowAttribute(hWnd, DWMWA_EXTENDED_FRAME_BOUNDS, out r, Marshal.SizeOf(typeof(RECT)));
+                                bool gotRect = (dwmRes == 0) || GetWindowRect(hWnd, out r);
+
+                                if (gotRect) {
                                     int w = r.Right - r.Left;
                                     int h = r.Bottom - r.Top;
                                     if (w >= 180 && h >= 100 && r.Top >= -40 && r.Left >= -40) {
