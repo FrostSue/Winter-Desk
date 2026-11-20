@@ -9,24 +9,41 @@ export class DressingRoomModal {
   private hatOptions = [
     { id: "top-hat", label: "Top Hat", icon: "🎩" },
     { id: "santa-hat", label: "Santa Hat", icon: "🎅" },
+    { id: "beanie", label: "Winter Beanie", icon: "🧶" },
+    { id: "crown", label: "Golden Crown", icon: "👑" },
+    { id: "earmuffs", label: "Plush Earmuffs", icon: "🎧" },
+    { id: "party-hat", label: "Party Hat", icon: "🎉" },
     { id: "none", label: "None", icon: "❄️" }
   ];
 
   private faceOptions = [
     { id: "smile", label: "Classic Smile", icon: "😊" },
     { id: "wink", label: "Playful Wink", icon: "😉" },
-    { id: "sunglasses", label: "Cool Shades", icon: "😎" }
+    { id: "sunglasses", label: "Cool Shades", icon: "😎" },
+    { id: "surprised", label: "Astonished", icon: "😲" },
+    { id: "blush", label: "Rosy Cheeks", icon: "🥰" },
+    { id: "mustache", label: "Gentleman", icon: "🥸" },
+    { id: "derp", label: "Playful Derp", icon: "😜" },
+    { id: "determined", label: "Heroic", icon: "😤" }
   ];
 
   private clothesOptions = [
     { id: "red-scarf", label: "Red Scarf", icon: "🧣" },
-    { id: "bow-tie", label: "Bow Tie", icon: "🎀" },
+    { id: "striped-scarf", label: "Candy Stripe", icon: "💈" },
+    { id: "emerald-scarf", label: "Emerald Scarf", icon: "🌲" },
+    { id: "bow-tie", label: "Blue Bow", icon: "🎀" },
+    { id: "gold-bow", label: "Golden Bow", icon: "🎗️" },
+    { id: "sweater", label: "Winter Vest", icon: "🦺" },
     { id: "none", label: "None", icon: "❄️" }
   ];
 
   private accessoryOptions = [
     { id: "broom", label: "Snow Broom", icon: "🧹" },
     { id: "candy-cane", label: "Candy Cane", icon: "🦯" },
+    { id: "lantern", label: "Warm Lantern", icon: "🏮" },
+    { id: "shield", label: "Viking Shield", icon: "🛡️" },
+    { id: "sparkler", label: "Magic Sparkler", icon: "✨" },
+    { id: "gift-box", label: "Holiday Gift", icon: "🎁" },
     { id: "none", label: "None", icon: "❄️" }
   ];
 
@@ -78,14 +95,14 @@ export class DressingRoomModal {
       position: "fixed",
       bottom: "80px",
       right: "60px",
-      width: "360px",
-      maxHeight: "520px",
-      background: "rgba(25, 30, 45, 0.88)",
+      width: "370px",
+      maxHeight: "540px",
+      background: "rgba(25, 30, 45, 0.90)",
       backdropFilter: "blur(20px)",
       WebkitBackdropFilter: "blur(20px)",
       borderRadius: "16px",
-      border: "1px solid rgba(255, 255, 255, 0.15)",
-      boxShadow: "0 16px 40px rgba(0, 0, 0, 0.4)",
+      border: "1px solid rgba(255, 255, 255, 0.18)",
+      boxShadow: "0 16px 40px rgba(0, 0, 0, 0.45)",
       color: "#ffffff",
       flexDirection: "column",
       padding: "20px",
@@ -148,33 +165,34 @@ export class DressingRoomModal {
         <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; color: rgba(255,255,255,0.6); margin-bottom: 8px; font-weight: 600;">
           ${title}
         </div>
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); gap: 8px;">
           ${options
-            .map(
-              (opt) => `
-            <button
-              class="option-btn"
-              data-category="${category}"
-              data-value="${opt.id}"
-              style="
-                background: ${currentVal === opt.id ? "rgba(70, 130, 240, 0.45)" : "rgba(255, 255, 255, 0.08)"};
-                border: 1px solid ${currentVal === opt.id ? "rgba(100, 160, 255, 0.8)" : "rgba(255, 255, 255, 0.1)"};
-                border-radius: 10px;
-                padding: 10px 6px;
-                color: #fff;
-                cursor: pointer;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                gap: 4px;
-                transition: all 0.15s ease;
-              "
-            >
-              <span style="font-size: 20px;">${opt.icon}</span>
-              <span style="font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${opt.label}</span>
-            </button>
-          `
-            )
+            .map((opt) => {
+              const isSelected = opt.id === currentVal;
+              return `
+                <button 
+                  class="option-btn" 
+                  data-category="${category}" 
+                  data-value="${opt.id}"
+                  style="
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    gap: 4px; 
+                    padding: 8px 6px; 
+                    border-radius: 10px; 
+                    border: 1px solid ${isSelected ? "rgba(99, 179, 237, 0.8)" : "rgba(255, 255, 255, 0.1)"}; 
+                    background: ${isSelected ? "rgba(66, 153, 225, 0.3)" : "rgba(255, 255, 255, 0.04)"}; 
+                    color: #ffffff; 
+                    cursor: pointer; 
+                    transition: all 0.15s ease;
+                  "
+                >
+                  <span style="font-size: 18px;">${opt.icon}</span>
+                  <span style="font-size: 10px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">${opt.label}</span>
+                </button>
+              `;
+            })
             .join("")}
         </div>
       </div>
