@@ -192,9 +192,9 @@ export class SnowEngine {
       if (px >= win.x && px <= win.x + win.width) {
         const localX = px - win.x;
         const depth = acc.getHeight(localX);
-        if (depth < 2.5) continue;
+        if (depth < 0.6) continue;
 
-        if (py >= win.y - depth - 2 && py <= win.y - 4) {
+        if (py >= win.y - depth - 8 && py <= win.y + 14) {
           let isOccluded = false;
           for (let v = 0; v < w; v++) {
             const topWin = this.openWindows[v];
@@ -217,13 +217,13 @@ export class SnowEngine {
     return null;
   }
 
-  public consumeWindowSnow(win: WindowBounds, atX?: number, amount = 0.6): number {
+  public consumeWindowSnow(win: WindowBounds, atX?: number, amount = 1.8): number {
     const key = this.getWindowKey(win);
     const acc = this.windowAccumulators.get(key);
     if (!acc) return 0;
     const targetX = atX !== undefined ? atX : win.x + win.width / 2;
     const localX = targetX - win.x;
-    acc.clearRange(localX - 18, localX + 18, amount);
+    acc.clearRange(localX - 22, localX + 22, amount);
     return acc.getHeight(localX);
   }
 
@@ -373,7 +373,7 @@ export class SnowEngine {
             const key = this.getWindowKey(win);
             const acc = this.windowAccumulators.get(key);
             if (acc) {
-              acc.deposit(flake.x - win.x, flake.radius * 0.045);
+              acc.deposit(flake.x - win.x, flake.radius * 0.16);
             }
             flake.reset(this.width);
             break;
@@ -491,7 +491,7 @@ export class SnowEngine {
 
       for (let v = 0; v < w; v++) {
         const topWin = this.openWindows[v];
-        if (topWin.y <= win.y + 2 && topWin.y + topWin.height >= win.y - 4) {
+        if (topWin.y <= win.y + 6 && topWin.y + topWin.height >= win.y - 20) {
           const occStart = topWin.x;
           const occEnd = topWin.x + topWin.width;
           const nextSegments: { start: number; end: number }[] = [];
@@ -517,43 +517,39 @@ export class SnowEngine {
 
       const grad = ctx.createLinearGradient(0, win.y - acc.maxDepth, 0, win.y);
       grad.addColorStop(0, "rgba(255, 255, 255, 0.98)");
-      grad.addColorStop(0.6, "rgba(235, 245, 255, 0.92)");
+      grad.addColorStop(0.55, "rgba(240, 248, 255, 0.92)");
       grad.addColorStop(1, "rgba(215, 235, 255, 0.88)");
 
       for (const seg of segments) {
         const segLen = seg.end - seg.start;
-        if (segLen < 8) continue;
+        if (segLen < 10) continue;
 
         const maxH = acc.getMaxHeightInRange(seg.start - win.x, seg.end - win.x);
-        if (maxH < 0.3) continue;
+        if (maxH < 0.25) continue;
 
         const colStep = acc.columnWidth;
         const startCol = Math.max(0, Math.floor((seg.start - win.x) / colStep));
         const endCol = Math.min(
-          Math.ceil(win.width / colStep),
+          Math.ceil(win.width / colStep) - 1,
           Math.ceil((seg.end - win.x) / colStep)
         );
 
         ctx.beginPath();
         ctx.moveTo(seg.start, win.y);
 
-        let first = true;
-        for (let col = startCol; col <= endCol; col++) {
-          const x = Math.min(seg.end, Math.max(seg.start, win.x + col * colStep));
+        let prevX = seg.start;
+        let prevY = win.y - acc.getHeight(seg.start - win.x);
+        ctx.lineTo(prevX, prevY);
+
+        for (let col = startCol + 1; col <= endCol; col++) {
+          const x = Math.min(seg.end, win.x + col * colStep);
           const h = acc.getHeight(x - win.x);
           const y = win.y - h;
-          if (first) {
-            ctx.lineTo(x, y);
-            first = false;
-          } else {
-            const prevCol = col - 1;
-            const prevX = Math.min(seg.end, Math.max(seg.start, win.x + prevCol * colStep));
-            const prevH = acc.getHeight(prevX - win.x);
-            const prevY = win.y - prevH;
-            const midX = (prevX + x) / 2;
-            const midY = (prevY + y) / 2;
-            ctx.quadraticCurveTo(prevX, prevY, midX, midY);
-          }
+          const midX = (prevX + x) / 2;
+          const midY = (prevY + y) / 2;
+          ctx.quadraticCurveTo(prevX, prevY, midX, midY);
+          prevX = x;
+          prevY = y;
         }
 
         ctx.lineTo(seg.end, win.y);
@@ -561,9 +557,39 @@ export class SnowEngine {
         ctx.fillStyle = grad;
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
-        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(seg.start, win.y);
+        prevX = seg.start;
+        prevY = win.y - acc.getHeight(seg.start - win.x);
+        ctx.lineTo(prevX, prevY);
+        for (let col = startCol + 1; col <= endCol; col++) {
+          const x = Math.min(seg.end, win.x + col * colStep);
+          const h = acc.getHeight(x - win.x);
+          const y = win.y - h;
+          const midX = (prevX + x) / 2;
+          const midY = (prevY + y) / 2;
+          ctx.quadraticCurveTo(prevX, prevY, midX, midY);
+          prevX = x;
+          prevY = y;
+        }
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.95)";
+        ctx.lineWidth = 1.2;
         ctx.stroke();
+
+        const lobeStep = 22;
+        const lobeCount = Math.floor(segLen / lobeStep);
+        if (lobeCount > 0 && maxH > 1.2) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
+          for (let li = 0; li < lobeCount; li++) {
+            const lx = seg.start + (li + 0.5) * lobeStep;
+            const lh = acc.getHeight(lx - win.x);
+            if (lh > 1.0) {
+              ctx.beginPath();
+              ctx.arc(lx, win.y - lh + 2.5, Math.min(lobeStep * 0.4, lh * 0.8), 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        }
       }
     }
     ctx.restore();
