@@ -184,7 +184,6 @@ export class SnowballBuilder {
     }
 
     const dx = x - this.activeBall.x;
-    const dy = y - this.activeBall.y;
     this.activeBall.rotation += dx * 0.1;
     this.activeBall.x = x;
     this.activeBall.y = y;
