@@ -328,20 +328,26 @@ async function bootstrap(): Promise<void> {
     if (snowGesture && snowGesture.isWindowSnow && !snowGesture.isFlinging) {
       const dy = my - snowGesture.startY;
       const dx = mx - snowGesture.startX;
-      const isDownSwipe = dy > 40 && dy > Math.abs(dx) * 2.2 && (Date.now() - snowGesture.startTime < 350);
+      const elapsed = Date.now() - snowGesture.startTime;
+      const dist = Math.hypot(dx, dy);
+      const speed = dist / Math.max(1, elapsed);
       const isRolling = snowballBuilder.isBuilding && snowballBuilder.activeBall;
 
-      if (!isRolling && isDownSwipe) {
-        snowGesture.isFlinging = true;
-        snowballBuilder.activeBall = null;
-        snowballBuilder.isBuilding = false;
-        snowEngine.flingWindowSnow(snowGesture.window!, mx, my, dx * 0.7, Math.max(3.5, dy * 0.55));
-        snowGesture = null;
-        updateInteractiveHover(mx, my);
-        return;
+      if (!isRolling || (snowballBuilder.activeBall && snowballBuilder.activeBall.radius <= 9)) {
+        if (elapsed < 320 && dist > 24 && speed > 0.35) {
+          snowGesture.isFlinging = true;
+          snowballBuilder.activeBall = null;
+          snowballBuilder.isBuilding = false;
+          const flingVx = dx * 0.35;
+          const flingVy = Math.max(1.8, Math.min(6.5, dy * 0.35 + 2.0));
+          snowEngine.flingWindowSnow(snowGesture.window!, snowGesture.startX, snowGesture.startY, flingVx, flingVy);
+          snowGesture = null;
+          updateInteractiveHover(mx, my);
+          return;
+        }
       }
 
-      if (isRolling && (Math.abs(dx) > 8 || (snowballBuilder.activeBall && snowballBuilder.activeBall.radius > 9))) {
+      if (isRolling && (dist > 14 || (snowballBuilder.activeBall && snowballBuilder.activeBall.radius > 9))) {
         snowGesture = null;
       }
     }
@@ -411,7 +417,7 @@ async function bootstrap(): Promise<void> {
         if (dist < 8 && elapsed < 260) {
           snowballBuilder.activeBall = null;
           snowballBuilder.isBuilding = false;
-          snowEngine.flingWindowSnow(snowGesture.window!, mx, my, (Math.random() - 0.5) * 3, 4.8);
+          snowEngine.flingWindowSnow(snowGesture.window!, snowGesture.startX, snowGesture.startY, (Math.random() - 0.5) * 3, 4.5);
         }
       }
       snowGesture = null;
