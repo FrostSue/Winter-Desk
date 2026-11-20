@@ -2,13 +2,13 @@
 title WinterDesk Launcher
 cd /d "%~dp0"
 
-for %%f in ("release\WinterDesk-Portable-*.exe") do (
-    start "" "%%~ff"
+for /f "delims=" %%f in ('dir /b /a-d /o-d "release\WinterDesk-Portable-*.exe" 2^>nul') do (
+    start "" "release\%%f"
     exit /b 0
 )
 
-for %%f in ("release\WinterDesk-Setup-*.exe") do (
-    start "" "%%~ff"
+for /f "delims=" %%f in ('dir /b /a-d /o-d "release\WinterDesk-Setup-*.exe" 2^>nul') do (
+    start "" "release\%%f"
     exit /b 0
 )
 
