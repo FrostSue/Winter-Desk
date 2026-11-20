@@ -116,30 +116,60 @@ export class SnowballBuilder {
   public handleMouseMove(x: number, y: number): boolean {
     if (!this.activeBall) return false;
 
-    const dx = x - this.activeBall.x;
-    const dy = y - this.activeBall.y;
-    const dist = Math.hypot(dx, dy);
-
-    this.activeBall.rotation += dx * 0.1;
-    this.activeBall.x = x;
-    this.activeBall.y = y;
-
-    if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
-      let winSnow = this.snowEngine.getWindowSnowAt(x, y);
-      if (!winSnow && this.activeBall.attachedWindowId) {
-        const found = this.windows.find((w) => w.id === this.activeBall!.attachedWindowId);
-        if (found) {
-          const depth = this.snowEngine.getWindowSnowAt(x, found.y)?.depth || 4;
-          winSnow = { window: found, depth };
-        }
+    let currentWin: WindowBounds | null = null;
+    if (this.activeBall.attachedWindowId) {
+      currentWin = this.windows.find((w) => w.id === this.activeBall!.attachedWindowId) || null;
+    }
+    if (!currentWin) {
+      const nearWin = this.snowEngine.getNearestWindowAt(x, y);
+      if (nearWin && Math.abs(y - nearWin.y) <= 45) {
+        currentWin = nearWin;
+        this.activeBall.attachedWindowId = currentWin.id || null;
       }
-      if (winSnow) {
-        this.snowEngine.consumeWindowSnow(winSnow.window, x, 1.6);
+    }
+
+    if (currentWin) {
+      const minX = currentWin.x + this.activeBall.radius;
+      const maxX = currentWin.x + currentWin.width - this.activeBall.radius;
+      const clampedX = Math.max(minX, Math.min(maxX, x));
+      const targetY = currentWin.y - this.activeBall.radius + 2;
+
+      const dx = clampedX - this.activeBall.x;
+      const dist = Math.abs(dx);
+
+      this.activeBall.rotation += dx * 0.1;
+      this.activeBall.x = clampedX;
+      this.activeBall.y = targetY;
+      this.activeBall.windowOffsetX = clampedX - currentWin.x;
+      this.activeBall.windowOffsetY = -this.activeBall.radius + 2;
+      this.activeBall.isFalling = false;
+      this.activeBall.vy = 0;
+
+      if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
+        this.snowEngine.consumeWindowSnow(currentWin, clampedX, 1.6);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
           this.activeBall.radius + dist * 0.08
         );
-      } else {
+        this.activeBall.windowOffsetY = -this.activeBall.radius + 2;
+        this.activeBall.y = currentWin.y - this.activeBall.radius + 2;
+      }
+      return true;
+    }
+
+    if (this.taskbar && Math.abs(y - this.taskbar.y) <= 45) {
+      const targetY = this.taskbar.y - this.activeBall.radius;
+      const dx = x - this.activeBall.x;
+      const dist = Math.abs(dx);
+
+      this.activeBall.rotation += dx * 0.1;
+      this.activeBall.x = x;
+      this.activeBall.y = targetY;
+      this.activeBall.attachedWindowId = null;
+      this.activeBall.isFalling = false;
+      this.activeBall.vy = 0;
+
+      if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
         const availableSnow = this.accumulator.getSnowHeight(x);
         if (availableSnow >= 0.6) {
           this.accumulator.clearRange(x - 16, x + 16);
@@ -147,9 +177,18 @@ export class SnowballBuilder {
             this.activeBall.targetRadius,
             this.activeBall.radius + dist * 0.07
           );
+          this.activeBall.y = this.taskbar.y - this.activeBall.radius;
         }
       }
+      return true;
     }
+
+    const dx = x - this.activeBall.x;
+    const dy = y - this.activeBall.y;
+    this.activeBall.rotation += dx * 0.1;
+    this.activeBall.x = x;
+    this.activeBall.y = y;
+    this.activeBall.attachedWindowId = null;
     return true;
   }
 
@@ -217,15 +256,36 @@ export class SnowballBuilder {
     }
 
     current.tier = 1;
-    const nearWin = this.snowEngine.getNearestWindowAt(current.x, current.y);
-    if (nearWin && Math.abs(current.y - nearWin.y) <= 30) {
-      current.y = nearWin.y - current.radius + 2;
-      current.attachedWindowId = nearWin.id || null;
-      current.windowOffsetX = current.x - nearWin.x;
-      current.windowOffsetY = -current.radius + 2;
-    } else if (this.taskbar && Math.abs(current.y - this.taskbar.y) <= 30) {
-      current.y = this.taskbar.y - current.radius;
-      current.attachedWindowId = null;
+    if (current.attachedWindowId) {
+      const win = this.windows.find((w) => w.id === current.attachedWindowId);
+      if (win) {
+        current.x = Math.max(win.x + current.radius, Math.min(win.x + win.width - current.radius, current.x));
+        current.y = win.y - current.radius + 2;
+        current.windowOffsetX = current.x - win.x;
+        current.windowOffsetY = -current.radius + 2;
+        current.isFalling = false;
+        current.vy = 0;
+      }
+    } else {
+      const nearWin = this.snowEngine.getNearestWindowAt(current.x, current.y);
+      if (nearWin && Math.abs(current.y - nearWin.y) <= 45) {
+        current.attachedWindowId = nearWin.id || null;
+        current.x = Math.max(nearWin.x + current.radius, Math.min(nearWin.x + nearWin.width - current.radius, current.x));
+        current.y = nearWin.y - current.radius + 2;
+        current.windowOffsetX = current.x - nearWin.x;
+        current.windowOffsetY = -current.radius + 2;
+        current.isFalling = false;
+        current.vy = 0;
+      } else if (this.taskbar && Math.abs(current.y - this.taskbar.y) <= 45) {
+        current.y = this.taskbar.y - current.radius;
+        current.attachedWindowId = null;
+        current.isFalling = false;
+        current.vy = 0;
+      } else {
+        current.isFalling = true;
+        current.vy = 1.0;
+        current.attachedWindowId = null;
+      }
     }
 
     this.restingBalls.push(current);
@@ -270,14 +330,17 @@ export class SnowballBuilder {
     for (const ball of this.restingBalls) {
       if (ball.attachedWindowId && !ball.isFalling) {
         const win = windows.find((w) => w.id === ball.attachedWindowId);
-        if (!win || ball.x < win.x - 15 || ball.x > win.x + win.width + 15) {
+        if (!win) {
           ball.isFalling = true;
           ball.vy = 1.0;
           ball.attachedWindowId = null;
           continue;
         }
-        ball.x = win.x + (ball.windowOffsetX || 0);
-        ball.y = win.y + (ball.windowOffsetY || 0);
+        const minOffset = ball.radius;
+        const maxOffset = Math.max(ball.radius, win.width - ball.radius);
+        ball.windowOffsetX = Math.max(minOffset, Math.min(maxOffset, ball.windowOffsetX || 0));
+        ball.x = win.x + ball.windowOffsetX;
+        ball.y = win.y + (ball.windowOffsetY || -ball.radius + 2);
       }
     }
   }
