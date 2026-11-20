@@ -43,6 +43,12 @@ public class WindowHunter {
     [DllImport("user32.dll", SetLastError = true)]
     public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out RECT pvAttribute, int cbAttribute);
+
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmGetWindowAttribute(IntPtr hwnd, int dwAttribute, out int pvAttribute, int cbAttribute);
+
     [DllImport("user32.dll", EntryPoint = "GetWindowLong")]
     public static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
@@ -60,6 +66,12 @@ public class WindowHunter {
 
         EnumDesktopWindows(hdesk, (hWnd, lParam) => {
             if (IsWindowVisible(hWnd) && !IsIconic(hWnd)) {
+                int cloaked = 0;
+                int cloakedRes = DwmGetWindowAttribute(hWnd, 14, out cloaked, sizeof(int));
+                if (cloakedRes == 0 && cloaked != 0) {
+                    return true;
+                }
+
                 int exStyle = GetWindowLong(hWnd, -20);
                 if ((exStyle & 0x80) == 0) {
                     var sb = new StringBuilder(256);
@@ -67,7 +79,10 @@ public class WindowHunter {
                     string title = sb.ToString();
                     if (!string.IsNullOrWhiteSpace(title) && title != "Program Manager" && title != "WinterDesk") {
                         RECT r;
-                        if (GetWindowRect(hWnd, out r)) {
+                        int dwmRes = DwmGetWindowAttribute(hWnd, 9, out r, Marshal.SizeOf(typeof(RECT)));
+                        bool gotRect = (dwmRes == 0) || GetWindowRect(hWnd, out r);
+
+                        if (gotRect) {
                             int w = r.Right - r.Left;
                             int h = r.Bottom - r.Top;
                             if (w >= 180 && h >= 100 && r.Top >= 0 && r.Left >= -20) {
