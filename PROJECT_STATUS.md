@@ -51,10 +51,13 @@ winterdesk/
 │   ├── main.ts             # Electron main process, window creation, screen capture flags, taskbar IPC
 │   ├── preload.ts          # Safe contextBridge exposing window.winterDesk
 │   └── tray.ts             # System tray manager and context menus
-├── release/                # Packaged standalone executable
-│   └── WinterDesk-win32-x64/WinterDesk.exe
+├── release/                # Output directory for NSIS setup and portable executables (gitignored)
+│   ├── WinterDesk-Portable-1.0.2.exe
+│   └── WinterDesk-Setup-1.0.2.exe
 ├── scripts/
-│   └── get_windows.ps1     # Win32 EnumDesktopWindows station-bound window hunter
+│   ├── WindowTracker.cs    # Native C# real-time Win32 titlebar and occlusion tracker
+│   ├── WindowTracker.exe   # Precompiled tracking executable
+│   └── get_windows.ps1     # PowerShell fallback tracker
 ├── src/
 │   ├── characters/
 │   │   ├── CompanionBuddy.ts  # Waddling winter companion friend (penguin)
