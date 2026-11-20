@@ -53,5 +53,7 @@ graphify-out/
 .claude/
 .cursor/
 .agent/
+scratch/
+PROJECT_STATUS.md
 coverage/
 .nyc_output/
