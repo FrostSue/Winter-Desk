@@ -1,6 +1,6 @@
 {
   "name": "winter-desk",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Interactive ambient winter desktop companion for Windows",
   "main": "dist-electron/main.js",
   "author": "FrostSue",
@@ -25,10 +25,13 @@
       "assets/**/*",
       "scripts/WindowTracker.exe"
     ],
+    "asarUnpack": [
+      "scripts/WindowTracker.exe"
+    ],
     "extraResources": [
       {
         "from": "scripts/WindowTracker.exe",
-        "to": "app/scripts/WindowTracker.exe"
+        "to": "scripts/WindowTracker.exe"
       }
     ],
     "win": {
