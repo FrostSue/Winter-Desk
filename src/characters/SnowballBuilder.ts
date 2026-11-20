@@ -116,48 +116,69 @@ export class SnowballBuilder {
   public handleMouseMove(x: number, y: number): boolean {
     if (!this.activeBall) return false;
 
-    let currentWin: WindowBounds | null = null;
+    let candidateWin: WindowBounds | null = null;
+
     if (this.activeBall.attachedWindowId) {
-      currentWin = this.windows.find((w) => w.id === this.activeBall!.attachedWindowId) || null;
-    }
-    if (!currentWin) {
-      const nearWin = this.snowEngine.getNearestWindowAt(x, y);
-      if (nearWin && Math.abs(y - nearWin.y) <= 45) {
-        currentWin = nearWin;
-        this.activeBall.attachedWindowId = currentWin.id || null;
+      const win = this.windows.find((w) => w.id === this.activeBall!.attachedWindowId);
+      if (win) {
+        const isNearCrest =
+          x >= win.x - 18 &&
+          x <= win.x + win.width + 18 &&
+          Math.abs(y - win.y) <= 24;
+        if (isNearCrest) {
+          candidateWin = win;
+        } else {
+          this.activeBall.attachedWindowId = null;
+        }
+      } else {
+        this.activeBall.attachedWindowId = null;
       }
     }
 
-    if (currentWin) {
-      const minX = currentWin.x + this.activeBall.radius;
-      const maxX = currentWin.x + currentWin.width - this.activeBall.radius;
+    if (!candidateWin) {
+      const nearWin = this.snowEngine.getNearestWindowAt(x, y);
+      if (
+        nearWin &&
+        Math.abs(y - nearWin.y) <= 22 &&
+        x >= nearWin.x - 8 &&
+        x <= nearWin.x + nearWin.width + 8
+      ) {
+        candidateWin = nearWin;
+        this.activeBall.attachedWindowId = candidateWin.id || null;
+      }
+    }
+
+    if (candidateWin) {
+      const minX = candidateWin.x + this.activeBall.radius;
+      const maxX = candidateWin.x + candidateWin.width - this.activeBall.radius;
       const clampedX = Math.max(minX, Math.min(maxX, x));
-      const targetY = currentWin.y - this.activeBall.radius + 2;
+      const targetY = candidateWin.y - this.activeBall.radius + 2;
 
       const dx = clampedX - this.activeBall.x;
       const dist = Math.abs(dx);
 
-      this.activeBall.rotation += dx * 0.1;
+      this.activeBall.rotation += (x - this.activeBall.x) * 0.1;
       this.activeBall.x = clampedX;
       this.activeBall.y = targetY;
-      this.activeBall.windowOffsetX = clampedX - currentWin.x;
+      this.activeBall.windowOffsetX = clampedX - candidateWin.x;
       this.activeBall.windowOffsetY = -this.activeBall.radius + 2;
       this.activeBall.isFalling = false;
       this.activeBall.vy = 0;
 
       if (dist > 1 && this.activeBall.radius < this.activeBall.targetRadius) {
-        this.snowEngine.consumeWindowSnow(currentWin, clampedX, 1.6);
+        this.snowEngine.consumeWindowSnow(candidateWin, clampedX, 1.4);
         this.activeBall.radius = Math.min(
           this.activeBall.targetRadius,
           this.activeBall.radius + dist * 0.08
         );
         this.activeBall.windowOffsetY = -this.activeBall.radius + 2;
-        this.activeBall.y = currentWin.y - this.activeBall.radius + 2;
+        this.activeBall.y = candidateWin.y - this.activeBall.radius + 2;
       }
       return true;
     }
 
-    if (this.taskbar && Math.abs(y - this.taskbar.y) <= 45) {
+    const isNearTaskbar = this.taskbar && Math.abs(y - this.taskbar.y) <= 28;
+    if (isNearTaskbar && this.taskbar) {
       const targetY = this.taskbar.y - this.activeBall.radius;
       const dx = x - this.activeBall.x;
       const dist = Math.abs(dx);
@@ -188,6 +209,8 @@ export class SnowballBuilder {
     this.activeBall.x = x;
     this.activeBall.y = y;
     this.activeBall.attachedWindowId = null;
+    this.activeBall.isFalling = false;
+    this.activeBall.vy = 0;
     return true;
   }
 
