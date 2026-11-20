@@ -170,6 +170,7 @@ async function bootstrap(): Promise<void> {
     const hoverBall = snowballBuilder.containsBall(mx, my);
     const hoverTrain = eventManager.isTrainNear(mx, my);
     const hoverPalette = decorationPalette.containsPoint(mx, my);
+    const hoverGift = eventManager.isNearGift(mx, my);
 
     for (const s of snowmen) {
       s.setWaving(s === hoverSnowman);
@@ -184,7 +185,8 @@ async function bootstrap(): Promise<void> {
       hoverDecor ||
       hoverBall ||
       hoverTrain ||
-      hoverPalette
+      hoverPalette ||
+      hoverGift
     );
 
     setInteractivity(interactive);
@@ -218,6 +220,11 @@ async function bootstrap(): Promise<void> {
 
     if (eventManager.containsFighter(mx, my)) {
       eventManager.stopSnowballFight();
+      return;
+    }
+
+    if (eventManager.hitTestGift(mx, my)) {
+      setInteractivity(true);
       return;
     }
 
@@ -321,7 +328,10 @@ async function bootstrap(): Promise<void> {
     if (snowGesture && snowGesture.isWindowSnow && !snowGesture.isFlinging) {
       const dy = my - snowGesture.startY;
       const dx = mx - snowGesture.startX;
-      if ((dy > 8 && Math.hypot(dx, dy) > 12) || (Math.hypot(dx, dy) > 16 && dy > 4)) {
+      const isDownSwipe = dy > 40 && dy > Math.abs(dx) * 2.2 && (Date.now() - snowGesture.startTime < 350);
+      const isRolling = snowballBuilder.isBuilding && snowballBuilder.activeBall;
+
+      if (!isRolling && isDownSwipe) {
         snowGesture.isFlinging = true;
         snowballBuilder.activeBall = null;
         snowballBuilder.isBuilding = false;
@@ -329,6 +339,10 @@ async function bootstrap(): Promise<void> {
         snowGesture = null;
         updateInteractiveHover(mx, my);
         return;
+      }
+
+      if (isRolling && (Math.abs(dx) > 8 || (snowballBuilder.activeBall && snowballBuilder.activeBall.radius > 9))) {
+        snowGesture = null;
       }
     }
 
@@ -434,7 +448,7 @@ async function bootstrap(): Promise<void> {
     }
     snowballBuilder.update(taskbar, openWindows);
     companion.update(taskbar, openWindows);
-    eventManager.update();
+    eventManager.update(openWindows);
     decorationManager.update();
 
     if (!eventManager.hasTrain()) {
