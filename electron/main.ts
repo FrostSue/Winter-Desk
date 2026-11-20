@@ -71,25 +71,68 @@ function calculateTaskbarBounds(): TaskbarBounds {
   };
 }
 
-function getWindowTrackerExePath(): string {
-  const devPath = path.join(__dirname, "../scripts/WindowTracker.exe");
-  const packagedPath = path.join(app.getAppPath(), "scripts/WindowTracker.exe");
-  const resourcePath = path.join(process.resourcesPath, "app/scripts/WindowTracker.exe");
+function getWindowTrackerExePath(): string | null {
+  const directCandidates = [
+    path.join(__dirname, "../scripts/WindowTracker.exe"),
+    path.join(process.resourcesPath, "scripts/WindowTracker.exe"),
+    path.join(process.resourcesPath, "app/scripts/WindowTracker.exe"),
+    path.join(process.resourcesPath, "app.asar.unpacked/scripts/WindowTracker.exe"),
+    path.join(app.getAppPath().replace(/app\.asar$/, "app.asar.unpacked"), "scripts/WindowTracker.exe"),
+    path.join(path.dirname(process.execPath), "scripts/WindowTracker.exe")
+  ];
 
-  if (fs.existsSync(devPath)) return devPath;
-  if (fs.existsSync(packagedPath)) return packagedPath;
-  return resourcePath;
+  for (const candidate of directCandidates) {
+    if (fs.existsSync(candidate) && !candidate.includes("app.asar")) {
+      return candidate;
+    }
+  }
+
+  const userDataDir = app.getPath("userData");
+  const extractedPath = path.join(userDataDir, "WindowTracker.exe");
+
+  const sources = [
+    path.join(app.getAppPath(), "scripts/WindowTracker.exe"),
+    path.join(__dirname, "../scripts/WindowTracker.exe")
+  ];
+
+  for (const src of sources) {
+    if (fs.existsSync(src)) {
+      try {
+        const fileData = fs.readFileSync(src);
+        if (!fs.existsSync(extractedPath) || fs.statSync(extractedPath).size !== fileData.length) {
+          fs.writeFileSync(extractedPath, fileData);
+        }
+        return extractedPath;
+      } catch {
+      }
+    }
+  }
+
+  if (fs.existsSync(extractedPath)) {
+    return extractedPath;
+  }
+
+  return null;
 }
 
 function startWindowTracker(): void {
   const exePath = getWindowTrackerExePath();
-  if (!fs.existsSync(exePath)) {
+  if (!exePath || !fs.existsSync(exePath)) {
     return;
   }
 
-  trackerProcess = spawn(exePath, [], {
-    windowsHide: true,
-    stdio: ["ignore", "pipe", "ignore"]
+  try {
+    trackerProcess = spawn(exePath, [], {
+      windowsHide: true,
+      stdio: ["ignore", "pipe", "ignore"]
+    });
+  } catch {
+    trackerProcess = null;
+    return;
+  }
+
+  trackerProcess.on("error", () => {
+    trackerProcess = null;
   });
 
   let buffer = "";
