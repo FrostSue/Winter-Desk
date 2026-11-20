@@ -47,6 +47,20 @@ export class SnowAccumulator {
     }
   }
 
+  public clearRangeResidual(startX: number, endX: number, minResidual = 2.2, amount = 2.6): number {
+    const minCol = Math.max(0, Math.floor(startX / this.columnWidth));
+    const maxCol = Math.min(this.heights.length - 1, Math.ceil(endX / this.columnWidth));
+    let collected = 0;
+    for (let col = minCol; col <= maxCol; col++) {
+      const prev = this.heights[col];
+      if (prev > minResidual) {
+        this.heights[col] = Math.max(minResidual, this.heights[col] - amount);
+        collected += prev - this.heights[col];
+      }
+    }
+    return collected;
+  }
+
   public update(): void {
     for (let i = 0; i < this.heights.length; i++) {
       if (this.heights[i] > 0) {
