@@ -502,16 +502,84 @@ export class Snowman {
 
       ctx.beginPath();
       ctx.arc(4, headY - 2, 2.5, Math.PI * 0.2, Math.PI * 0.8);
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.3;
       ctx.strokeStyle = "#222222";
       ctx.stroke();
     } else if (this.config.face === "sunglasses") {
       ctx.fillStyle = "#111111";
       ctx.beginPath();
-      ctx.roundRect(-8, headY - 4, 6, 5, 1.5);
-      ctx.roundRect(2, headY - 4, 6, 5, 1.5);
+      ctx.roundRect(-8, headY - 5, 6, 5, 1.5);
+      ctx.roundRect(2, headY - 5, 6, 5, 1.5);
       ctx.fill();
-      ctx.fillRect(-2, headY - 2, 4, 1.5);
+      ctx.fillRect(-2, headY - 3, 4, 1.5);
+
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-6, headY - 4);
+      ctx.lineTo(-4, headY - 2);
+      ctx.moveTo(4, headY - 4);
+      ctx.lineTo(6, headY - 2);
+      ctx.stroke();
+    } else if (this.config.face === "surprised") {
+      ctx.beginPath();
+      ctx.arc(-4, headY - 3, 2.2, 0, Math.PI * 2);
+      ctx.arc(4, headY - 3, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.ellipse(0, headY + 5, 2.5, 3.5, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#222222";
+      ctx.fill();
+    } else if (this.config.face === "blush") {
+      ctx.beginPath();
+      ctx.arc(-4, headY - 2, 1.8, 0, Math.PI * 2);
+      ctx.arc(4, headY - 2, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 138, 128, 0.55)";
+      ctx.beginPath();
+      ctx.arc(-6, headY + 2, 2.5, 0, Math.PI * 2);
+      ctx.arc(6, headY + 2, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.face === "mustache") {
+      ctx.beginPath();
+      ctx.arc(-4, headY - 3, 1.8, 0, Math.PI * 2);
+      ctx.arc(4, headY - 3, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#3e2723";
+      ctx.beginPath();
+      ctx.moveTo(-7, headY + 3);
+      ctx.quadraticCurveTo(-3, headY + 1, 0, headY + 3);
+      ctx.quadraticCurveTo(3, headY + 1, 7, headY + 3);
+      ctx.quadraticCurveTo(4, headY + 6, 0, headY + 4);
+      ctx.quadraticCurveTo(-4, headY + 6, -7, headY + 3);
+      ctx.fill();
+    } else if (this.config.face === "derp") {
+      ctx.beginPath();
+      ctx.arc(-4, headY - 4, 2.4, 0, Math.PI * 2);
+      ctx.arc(4, headY - 1, 1.4, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ff4081";
+      ctx.beginPath();
+      ctx.arc(2, headY + 5, 2.2, 0, Math.PI);
+      ctx.fill();
+    } else if (this.config.face === "determined") {
+      ctx.strokeStyle = "#222222";
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.moveTo(-6, headY - 5);
+      ctx.lineTo(-2, headY - 3);
+      ctx.moveTo(6, headY - 5);
+      ctx.lineTo(2, headY - 3);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(-4, headY - 2, 1.6, 0, Math.PI * 2);
+      ctx.arc(4, headY - 2, 1.6, 0, Math.PI * 2);
+      ctx.fill();
     } else {
       ctx.beginPath();
       ctx.arc(-4, headY - 2, 1.8, 0, Math.PI * 2);
@@ -527,11 +595,13 @@ export class Snowman {
     ctx.fillStyle = "#ff6f00";
     ctx.fill();
 
-    ctx.beginPath();
-    ctx.arc(0, headY + 3.5, 3.5, 0.2 * Math.PI, 0.8 * Math.PI);
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = "#444444";
-    ctx.stroke();
+    if (this.config.face !== "surprised" && this.config.face !== "mustache") {
+      ctx.beginPath();
+      ctx.arc(0, headY + 3.5, 3.5, 0.2 * Math.PI, 0.8 * Math.PI);
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = "#444444";
+      ctx.stroke();
+    }
   }
 
   private drawArms(ctx: CanvasRenderingContext2D): void {
@@ -575,6 +645,32 @@ export class Snowman {
 
       ctx.fillStyle = "#ffffff";
       ctx.fillRect(3, neckY + 14, 6, 2.5);
+    } else if (this.config.clothes === "striped-scarf") {
+      ctx.fillStyle = "#e53935";
+      ctx.beginPath();
+      ctx.ellipse(0, neckY, 13, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.rect(3, neckY, 6, 18);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(3, neckY + 3, 6, 3);
+      ctx.fillRect(3, neckY + 9, 6, 3);
+      ctx.fillRect(3, neckY + 15, 6, 3);
+    } else if (this.config.clothes === "emerald-scarf") {
+      ctx.fillStyle = "#2e7d32";
+      ctx.beginPath();
+      ctx.ellipse(0, neckY, 13, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.rect(3, neckY, 6, 18);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffd54f";
+      ctx.fillRect(3, neckY + 14, 6, 2.5);
     } else if (this.config.clothes === "bow-tie") {
       ctx.fillStyle = "#1e88e5";
       ctx.beginPath();
@@ -594,6 +690,38 @@ export class Snowman {
       ctx.fillStyle = "#0d47a1";
       ctx.beginPath();
       ctx.arc(0, neckY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.clothes === "gold-bow") {
+      ctx.fillStyle = "#ffd54f";
+      ctx.beginPath();
+      ctx.moveTo(-7, neckY - 4);
+      ctx.lineTo(0, neckY);
+      ctx.lineTo(-7, neckY + 4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(7, neckY - 4);
+      ctx.lineTo(0, neckY);
+      ctx.lineTo(7, neckY + 4);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#ff8f00";
+      ctx.beginPath();
+      ctx.arc(0, neckY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.clothes === "sweater") {
+      ctx.fillStyle = "#b71c1c";
+      ctx.beginPath();
+      ctx.roundRect(-12, neckY, 24, 22, [4, 4, 8, 8]);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffd54f";
+      ctx.beginPath();
+      ctx.arc(0, neckY + 5, 2, 0, Math.PI * 2);
+      ctx.arc(0, neckY + 11, 2, 0, Math.PI * 2);
+      ctx.arc(0, neckY + 17, 2, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -627,6 +755,74 @@ export class Snowman {
 
       ctx.beginPath();
       ctx.arc(19, headY - 26, 4.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.hat === "beanie") {
+      ctx.fillStyle = "#1565c0";
+      ctx.beginPath();
+      ctx.arc(0, headY - 12, 12, Math.PI, 0);
+      ctx.fill();
+
+      ctx.fillStyle = "#e3f2fd";
+      ctx.beginPath();
+      ctx.roundRect(-12, headY - 13, 24, 5, 2.5);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.arc(0, headY - 24, 4, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.hat === "crown") {
+      ctx.fillStyle = "#ffd54f";
+      ctx.beginPath();
+      ctx.moveTo(-11, headY - 10);
+      ctx.lineTo(-11, headY - 22);
+      ctx.lineTo(-5, headY - 15);
+      ctx.lineTo(0, headY - 24);
+      ctx.lineTo(5, headY - 15);
+      ctx.lineTo(11, headY - 22);
+      ctx.lineTo(11, headY - 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = "#d50000";
+      ctx.beginPath();
+      ctx.arc(-11, headY - 22, 1.8, 0, Math.PI * 2);
+      ctx.arc(0, headY - 24, 2.2, 0, Math.PI * 2);
+      ctx.arc(11, headY - 22, 1.8, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.hat === "earmuffs") {
+      ctx.strokeStyle = "#37474f";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, headY - 4, 13, Math.PI * 0.9, Math.PI * 0.1, true);
+      ctx.stroke();
+
+      ctx.fillStyle = "#e91e63";
+      ctx.beginPath();
+      ctx.ellipse(-12, headY - 2, 4.5, 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(12, headY - 2, 4.5, 6, 0, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.hat === "party-hat") {
+      ctx.fillStyle = "#9c27b0";
+      ctx.beginPath();
+      ctx.moveTo(-9, headY - 11);
+      ctx.lineTo(0, headY - 30);
+      ctx.lineTo(9, headY - 11);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = "#ffd54f";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(-6, headY - 17);
+      ctx.lineTo(6, headY - 17);
+      ctx.moveTo(-3, headY - 23);
+      ctx.lineTo(3, headY - 23);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffd54f";
+      ctx.beginPath();
+      ctx.arc(0, headY - 30, 3, 0, Math.PI * 2);
       ctx.fill();
     }
   }
@@ -668,6 +864,72 @@ export class Snowman {
       ctx.strokeStyle = "#d32f2f";
       ctx.lineWidth = 3;
       ctx.stroke();
+    } else if (this.config.accessory === "lantern") {
+      ctx.strokeStyle = "#4e342e";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(26, -42);
+      ctx.lineTo(30, -56);
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffb300";
+      ctx.beginPath();
+      ctx.roundRect(24, -56, 12, 14, 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#fff59d";
+      ctx.beginPath();
+      ctx.arc(30, -49, 3.5, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#37474f";
+      ctx.lineWidth = 1.2;
+      ctx.strokeRect(24, -56, 12, 14);
+    } else if (this.config.accessory === "shield") {
+      ctx.fillStyle = "#5d4037";
+      ctx.beginPath();
+      ctx.arc(28, -42, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = "#cfd8dc";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = "#1976d2";
+      ctx.beginPath();
+      ctx.arc(28, -42, 5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.config.accessory === "sparkler") {
+      ctx.strokeStyle = "#9e9e9e";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(26, -38);
+      ctx.lineTo(32, -64);
+      ctx.stroke();
+
+      const time = Date.now() * 0.01;
+      for (let s = 0; s < 6; s++) {
+        const sparkAng = time + s * (Math.PI / 3);
+        const dist = 4 + Math.sin(time * 2 + s) * 5;
+        ctx.fillStyle = "#ffeb3b";
+        ctx.beginPath();
+        ctx.arc(32 + Math.cos(sparkAng) * dist, -64 + Math.sin(sparkAng) * dist, 1.4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (this.config.accessory === "gift-box") {
+      ctx.fillStyle = "#d32f2f";
+      ctx.beginPath();
+      ctx.roundRect(22, -44, 18, 16, 2);
+      ctx.fill();
+
+      ctx.fillStyle = "#ffd54f";
+      ctx.fillRect(29, -44, 4, 16);
+      ctx.fillRect(22, -37, 18, 3.5);
+
+      ctx.beginPath();
+      ctx.arc(29, -46, 2.5, 0, Math.PI * 2);
+      ctx.arc(33, -46, 2.5, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 }
